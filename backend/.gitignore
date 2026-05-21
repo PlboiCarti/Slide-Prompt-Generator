@@ -1,0 +1,57 @@
+# ==================== PYTHON ====================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+.venv/
+ENV/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ==================== DATABASE ====================
+# SQLite - dữ liệu local, không commit
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ==================== ENVIRONMENT ====================
+# QUAN TRỌNG: Không bao giờ commit file .env (chứa secret keys)
+.env
+.env.local
+.env.*.local
+.env.production
+
+# ==================== NODE / FRONTEND ====================
+node_modules/
+dist/
+.vite/
+*.local
+
+# ==================== IDE ====================
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ==================== LOGS ====================
+*.log
+logs/
