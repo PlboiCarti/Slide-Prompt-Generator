@@ -138,6 +138,7 @@ def _update_job(
 ) -> None:
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
+        logger.warning(f"[{job_id[:8]}] _update_job: job not found in DB — status '{status}' dropped")
         return
     job.status = status
     job.updated_at = datetime.utcnow()

@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
+from contextlib import contextmanager
 
 import google.generativeai as genai
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -35,6 +37,17 @@ def _json_config(temp: float = 0.7, tokens: int = 4000):
         max_output_tokens=tokens,
         response_mime_type="application/json",
     )
+
+
+@contextmanager
+def _timed(label: str):
+    """Context manager log thời gian thực thi của một Gemini call."""
+    t0 = time.perf_counter()
+    try:
+        yield
+    finally:
+        elapsed = time.perf_counter() - t0
+        logger.info(f"{label} | took {elapsed:.2f}s")
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -100,10 +113,11 @@ JSON Schema:
   "visual":           "..."
 }}"""
 
-    resp = _model().generate_content(
-        prompt,
-        generation_config=_json_config(temp=0.3, tokens=1000),
-    )
+    with _timed("Phase1 generate_design_description"):
+        resp = _model().generate_content(
+            prompt,
+            generation_config=_json_config(temp=0.3, tokens=2000),
+        )
 
     parsed = _safe_parse(resp.text)
     logger.info("Design description generated")
@@ -171,10 +185,11 @@ JSON Schema:
   ]
 }}"""
 
-    resp = _model().generate_content(
-        prompt,
-        generation_config=_json_config(temp=0.3, tokens=3000),
-    )
+    with _timed(f"B2 generate_slide_structure ({slide_count} slides)"):
+        resp = _model().generate_content(
+            prompt,
+            generation_config=_json_config(temp=0.3, tokens=3000),
+        )
 
     parsed = _safe_parse(resp.text)
     raw_slides = parsed.get("slide_instructions", [])
@@ -192,7 +207,7 @@ JSON Schema:
         )
 
     slides.sort(key=lambda s: s.index)
-    logger.info(f"Slide structure generated: {len(slides)} slides")
+    logger.info(f"B2 slide structure: {len(slides)}/{slide_count} slides returned")
     return slides
 
 
@@ -287,10 +302,11 @@ def _split_batch(
 
 JSON: {{"contents": ["nội dung slide 1", "nội dung slide 2", ...]}}"""
 
-    resp = _model().generate_content(
-        prompt,
-        generation_config=_json_config(temp=0.2, tokens=6000),
-    )
+    with _timed(f"B3 _split_batch ({n} slides, start={start_index})"):
+        resp = _model().generate_content(
+            prompt,
+            generation_config=_json_config(temp=0.2, tokens=6000),
+        )
 
     parsed = _safe_parse(resp.text)
     contents = parsed.get("contents", [])
@@ -313,14 +329,15 @@ def _recursive_summarize(content: str, language: str, max_len: int = 12_000) -> 
             f"Tóm tắt đoạn văn sau, giữ TẤT CẢ thông tin quan trọng "
             f"(số liệu, tên, sự kiện, luận điểm). Không bịa thêm. {lang_instr}\n\n{chunk}"
         )
-        resp = _model().generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
-                temperature=0.1, max_output_tokens=1000,
-            ),
-        )
+        with _timed(f"  summarize chunk {i + 1}/{len(chunks)}"):
+            resp = _model().generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.1, max_output_tokens=1000,
+                ),
+            )
         summaries.append(resp.text.strip())
-        logger.info(f"Summarized chunk {i + 1}/{len(chunks)}")
+        logger.info(f"  chunk {i + 1}/{len(chunks)} summarized: {len(chunk)} → {len(resp.text.strip())} ký tự")
 
     combined = "\n\n".join(summaries)
     if len(combined) > max_len:
@@ -504,16 +521,16 @@ def _build_full_master_prompt(
 
 
 # ── Helper ─────────────────────────────────────────────────────────────
-_CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
+# Xóa markdown code fence (```json ... ```) nếu model trả về
+_CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE | re.MULTILINE)
 
 
 def _safe_parse(raw: str) -> dict:
+    """Parse JSON từ Gemini response. Raise ValueError nếu parse thất bại (để tenacity retry)."""
+    cleaned = _CODE_FENCE_RE.sub("", raw).strip()
     try:
-        cleaned = raw.strip()
-        cleaned = cleaned.lstrip("```json").lstrip("```").rstrip("```").strip()
-        cleaned = " ".join(cleaned.splitlines())
         return json.loads(cleaned)
     except json.JSONDecodeError as e:
         logger.error(f"JSON parse error: {e}")
-        logger.error(f"Full raw response:\n{raw}")  # ← bỏ [:300] để xem toàn bộ
-        return {}
+        logger.error(f"Full raw response:\n{raw}")
+        raise ValueError(f"Gemini trả về JSON không hợp lệ: {e}") from e

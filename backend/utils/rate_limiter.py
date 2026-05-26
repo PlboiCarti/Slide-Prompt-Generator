@@ -38,6 +38,13 @@ class LoginAttemptTracker:
             self._cleanup_unlocked(email, now)
             return len(self._attempts.get(email, [])) >= settings.MAX_LOGIN_ATTEMPTS
 
+    def get_attempts(self, email: str) -> int:
+        """Trả về số lần thất bại trong cửa sổ hiện tại."""
+        with self._lock:
+            now = datetime.utcnow()
+            self._cleanup_unlocked(email, now)
+            return len(self._attempts.get(email, []))
+
     def reset(self, email: str) -> None:
         """Xoá counter (gọi sau khi login thành công)."""
         with self._lock:

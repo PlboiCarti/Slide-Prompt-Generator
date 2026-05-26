@@ -42,7 +42,11 @@ def generate_description(data: DescribeRequest):
     Synchronous — không tạo job, không cần poll.
     Frontend hiển thị kết quả cho user chỉnh sửa, rồi gửi sang Phase 2.
     """
-    return generate_design_description(
+    logger.info(
+        f"Phase1 generate-description | purpose='{data.purpose[:40]}' "
+        f"| lang={data.language}"
+    )
+    result = generate_design_description(
         purpose=data.purpose,
         audience=data.audience,
         style=data.style,
@@ -50,6 +54,8 @@ def generate_description(data: DescribeRequest):
         color=data.primary_color,
         language=data.language,
     )
+    logger.info("Phase1 complete")
+    return result
 
 
 # ══════════════════════════════════════════════════════════════════════
