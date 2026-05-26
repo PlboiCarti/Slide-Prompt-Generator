@@ -343,15 +343,9 @@ def assemble_master_prompt(
         language=language,
     )
 
-    # system_instruction — tóm tắt vai trò AI để lưu vào DB / hiển thị
-    role_summary = (
-        f"Chuyên gia thiết kế slide | Tone: {design_description.tone} | "
-        f"Font: {design_description.font}"
-    )
-
     return MasterPromptResult(
         master_prompt_title="Master Prompt - Presentation",
-        system_instruction=role_summary,
+        design_description=design_description,
         slide_instructions=slides_sorted,
         total_slides=len(slides_sorted),
         full_master_prompt=full,

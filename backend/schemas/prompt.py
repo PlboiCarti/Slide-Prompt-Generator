@@ -39,7 +39,7 @@ class SlideInstruction(BaseModel):
 class MasterPromptResult(BaseModel):
     """Kết quả hoàn chỉnh trả về Frontend."""
     master_prompt_title: str
-    system_instruction: str
+    design_description: DesignDescription
     slide_instructions: list[SlideInstruction]
     total_slides: int
     full_master_prompt: str  # toàn bộ prompt — user copy 1 lần

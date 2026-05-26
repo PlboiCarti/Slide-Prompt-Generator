@@ -25,24 +25,81 @@ When SMTP credentials are omitted, email verification links print to the console
 
 ## Architecture
 
-### Request → Job → Background Pipeline
+### 2-Phase Prompt Generation Flow
 
-The core flow for prompt generation is asynchronous:
+Generation is split into two explicit phases so the user can review and edit the AI's design interpretation before the full prompt is built.
 
-1. `POST /api/generate` (`api/prompt_router.py`) accepts form data + optional PDF, extracts content via `services/content_extractor.py`, creates a `Job` row with status `PENDING`, then kicks off `workers/pipeline_worker.py` in a **daemon thread** (no Redis/Celery — intentionally simple).
-2. The pipeline worker transitions the job through `PENDING → PROCESSING → COMPLETED/FAILED`.
-3. The client polls `GET /api/jobs/{job_id}` until status is terminal.
+```
+Phase 1 (sync, ~3–5s)            Phase 2 (async background job)
+──────────────────────────        ──────────────────────────────────────
+POST /api/generate-description    POST /api/generate
+  6 form fields                     6 form fields + description + content/PDF
+       ↓                                    ↓
+generate_design_description()       B2: generate_slide_structure()
+  → DesignDescription JSON               → list[SlideInstruction]
+       ↓                                    ↓
+Frontend displays 5 editable        B3: fill_slide_contents()
+fields (tone/font/density/etc.)          → list[SlideInstruction] + content
+       ↓                                    ↓
+User edits if needed                B4: assemble_master_prompt()
+       ↓                                 → MasterPromptResult
+POST /api/generate ──────────────►
+  (description included)           Frontend polls GET /api/jobs/{job_id}
+```
 
-### LLM Pipeline (services/llm_service.py)
+### API Endpoints
 
-The Gemini calls happen in sequence inside `_run_pipeline`:
+| Endpoint | Method | Sync/Async | Purpose |
+|---|---|---|---|
+| `/api/generate-description` | POST | **Sync** — returns immediately | Phase 1: analyse form fields → design description |
+| `/api/generate` | POST | **Async** — returns `job_id` | Phase 2: build full Master Prompt |
+| `/api/jobs/{job_id}` | GET | Sync | Poll job status / retrieve result |
 
-1. **Build instruction** — formats the form payload into a plain text instruction string.
-2. **generate_master_prompt_structure** — single Gemini call (JSON mode, temp=0.3) returning `system_instruction` + `slide_instructions` list.
-3. **split_content_to_slides** — another Gemini call (JSON mode, temp=0.2) distributing source content into per-slide excerpts. Content >12 000 chars is recursively summarized first. If slide count >10, the batch is split into two separate calls.
-4. **assemble_master_prompt** — pure Python; builds the final `MasterPromptResult` and `full_master_prompt` string that users copy into another AI.
+**`POST /api/generate-description`** — JSON body (`DescribeRequest`), returns `DesignDescription`:
+```json
+{ "purpose": "...", "audience": "...", "style": "...",
+  "primary_layout": "...", "primary_color": "...", "language": "vi" }
+```
 
-All Gemini calls use `tenacity` retry (3 attempts, exponential back-off). The model is configured via `llm_model` setting (default: `gemini-2.5-flash`).
+**`POST /api/generate`** — multipart form (supports PDF upload). Key field: `description` passed as a JSON string containing the (possibly user-edited) `DesignDescription`. If omitted, the pipeline auto-generates one inside the background job (user cannot review it).
+
+### LLM Pipeline (`services/llm_service.py`)
+
+All Gemini calls use JSON response mode and `tenacity` retry (3 attempts, exponential back-off). Model configured via `llm_model` setting (default: `gemini-2.5-flash`).
+
+| Function | Phase | Gemini call | Input → Output |
+|---|---|---|---|
+| `generate_design_description()` | 1 | Yes (temp=0.3) | 6 form fields → `DesignDescription` |
+| `generate_slide_structure()` | 2 B2 | Yes (temp=0.3) | purpose/audience/style/layout/slide_count → `list[SlideInstruction]` (validated immediately, never passed as raw `list[dict]`) |
+| `fill_slide_contents()` | 2 B3 | Yes (temp=0.2) | `list[SlideInstruction]` + content → `list[SlideInstruction]` with content filled |
+| `assemble_master_prompt()` | 2 B4 | No | purpose/audience/style + `DesignDescription` + slides → `MasterPromptResult` |
+
+`fill_slide_contents()` skips the Gemini call entirely if no source content is provided. Content >12 000 chars is recursively summarised first (4 000-char chunks). Slide count >10 splits into two separate Gemini calls.
+
+`_build_full_master_prompt()` assembles the copyable prompt string in this section order:
+`[VAI TRÒ] → [NHIỆM VỤ] → [CHỈ DẪN] → [MÔ TẢ THIẾT KẾ] → [FORMAT] → [NỘI DUNG TỪNG SLIDE]`
+
+### Background Worker (`workers/pipeline_worker.py`)
+
+`run_pipeline_in_thread()` spawns a daemon thread that runs `_run_pipeline()`. Each thread opens its own SQLAlchemy session (never shares the request session). Job lifecycle: `PENDING → PROCESSING → COMPLETED / FAILED`. Any unhandled exception marks the job `FAILED`.
+
+If `description` is present in the payload, the worker uses it directly as `DesignDescription`. If absent (Phase 1 was skipped), the worker calls `generate_design_description()` automatically before B2.
+
+### Schemas (`schemas/prompt.py`)
+
+```
+DescribeRequest      → Phase 1 request body
+DesignDescription    → Phase 1 response; also embedded in MasterPromptResult
+SlideInstruction     → one slide: index, title, instruction, content
+MasterPromptResult   → final job result:
+    master_prompt_title   str
+    design_description    DesignDescription   ← lets frontend re-display even after page refresh
+    slide_instructions    list[SlideInstruction]
+    total_slides          int
+    full_master_prompt    str                 ← the string users copy into another AI
+```
+
+`design_description` is included in `MasterPromptResult` (not just kept in React state) so the frontend can reconstruct it after a page reload or when viewing historical job results.
 
 ### Auth System
 
@@ -60,10 +117,10 @@ Rate limiting for login attempts is in-memory (`utils/rate_limiter.py`) — it d
 | Directory | Purpose |
 |-----------|---------|
 | `api/` | HTTP route handlers (`auth_router`, `prompt_router`) |
-| `services/` | Business logic — `auth_service`, `llm_service`, `content_extractor`, `email_service`, `description` |
-| `workers/` | `pipeline_worker` — daemon thread runner for the generation pipeline |
+| `services/` | Business logic — `auth_service`, `llm_service`, `content_extractor`, `email_service` |
+| `workers/` | `pipeline_worker` — daemon thread runner for Phase 2 |
 | `models/` | SQLAlchemy ORM models: `User`, `AuthProvider`, `Job` |
-| `schemas/` | Pydantic request/response schemas |
+| `schemas/` | Pydantic schemas — `prompt.py`, `jobs.py`, `auth.py` |
 | `database/` | Engine + session factory; auto-detects SQLite vs Postgres from `SQLALCHEMY_DATABASE_URL` |
 | `core/` | `security.py` (JWT + passwords), `oauth.py` (Authlib config), `dependencies.py` (FastAPI deps) |
 | `utils/` | `config.py` (pydantic-settings singleton), `rate_limiter.py` |
@@ -76,5 +133,5 @@ Rate limiting for login attempts is in-memory (`utils/rate_limiter.py`) — it d
 
 - Text input: max 100 000 characters
 - PDF: max 10 MB; must be `application/pdf`
-- Slides: 3–30 (validated at API level); content splitting batches at >10 slides
-- Content passed to Gemini for slide splitting: >12 000 chars triggers recursive summarization (4 000-char chunks)
+- Slides: 3–30 (validated at API level); `fill_slide_contents` batches at >10 slides
+- Source content passed to Gemini: >12 000 chars triggers recursive summarisation (4 000-char chunks)
