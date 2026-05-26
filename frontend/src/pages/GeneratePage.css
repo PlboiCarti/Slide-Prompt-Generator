@@ -323,6 +323,211 @@
   color: #6b7280;
 }
 
+/* ── Phase 1 footer ──────────────────────────────── */
+.gen-phase1-footer {
+  padding: 20px 24px 24px;
+  text-align: center;
+  background: #fafbfc;
+  border-top: 1px solid #f1f3f5;
+}
+
+.gen-phase1-hint {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 10px 0 0;
+}
+
+.gen-desc-error {
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+/* ── Analyze button (Phase 1) ────────────────────── */
+.gen-analyze-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.15s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.gen-analyze-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.gen-analyze-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Spinner nhỏ bên trong button */
+.gen-btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* ── Re-analyze row ──────────────────────────────── */
+.gen-reanalyze-row {
+  padding: 12px 24px;
+  border-top: 1px solid #f1f3f5;
+  background: #fafbfc;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.gen-reanalyze-btn {
+  padding: 7px 14px;
+  background: white;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.gen-reanalyze-btn:hover:not(:disabled) {
+  background: #f5f3ff;
+  border-color: #c4b5fd;
+}
+
+.gen-reanalyze-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Description panel (Phase 1 result) ─────────── */
+.gen-desc-panel {
+  margin-top: 16px;
+  background: white;
+  border: 1px solid #ddd6fe;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.gen-desc-header {
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+  border-bottom: 1px solid #ddd6fe;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.gen-desc-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.gen-desc-subtitle {
+  flex: 1;
+  font-size: 13px;
+  color: #5b21b6;
+  margin: 0;
+  line-height: 1.5;
+  min-width: 180px;
+}
+
+/* ── Description fields (5 editable boxes) ─────── */
+.gen-desc-fields {
+  padding: 20px 24px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .gen-desc-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* key_message_rule spans full width */
+.gen-desc-fields .gen-desc-field:nth-child(3) {
+  grid-column: 1 / -1;
+}
+
+.gen-desc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gen-desc-field label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.gen-desc-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: #9ca3af;
+}
+
+.gen-desc-field textarea {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fafbfc;
+  color: #111827;
+  resize: vertical;
+  line-height: 1.5;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.gen-desc-field textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  background: white;
+}
+
+.gen-desc-field textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Content form (Section 3 + Phase 2 button) ──── */
+.gen-content-form {
+  margin-top: 16px;
+}
+
 /* ── Submit ──────────────────────────────────────── */
 .gen-submit {
   margin: 24px;
