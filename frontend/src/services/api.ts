@@ -29,6 +29,23 @@ export interface RegisterPayload {
   password: string
 }
 
+export interface DesignDescription {
+  tone: string
+  font: string
+  key_message_rule: string
+  density: string
+  visual: string
+}
+
+export interface DescribePayload {
+  purpose: string
+  audience: string
+  style: string
+  primary_layout: string
+  primary_color: string
+  language: string
+}
+
 export interface GeneratePayload {
   purpose: string
   audience: string
@@ -39,6 +56,7 @@ export interface GeneratePayload {
   content: string
   language: string
   pdf_file?: File
+  description?: DesignDescription  // từ Phase 1, user đã chỉnh
 }
 
 export const authAPI = {
@@ -51,6 +69,11 @@ export const authAPI = {
 }
 
 export const promptAPI = {
+  // Phase 1 — sync, trả về DesignDescription ngay
+  generateDescription: (data: DescribePayload) =>
+    api.post<DesignDescription>('/generate-description', data),
+
+  // Phase 2 — async, trả job_id để poll
   generate: async (data: GeneratePayload) => {
     const formData = new FormData()
     formData.append('purpose', data.purpose)
@@ -64,10 +87,19 @@ export const promptAPI = {
     if (data.pdf_file) {
       formData.append('pdf_file', data.pdf_file)
     }
+    // 5 field description riêng lẻ (tránh lỗi JSON string trong multipart)
+    if (data.description) {
+      formData.append('desc_tone', data.description.tone)
+      formData.append('desc_font', data.description.font)
+      formData.append('desc_key_message_rule', data.description.key_message_rule)
+      formData.append('desc_density', data.description.density)
+      formData.append('desc_visual', data.description.visual)
+    }
     return api.post('/generate', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+
   getJobStatus: (jobId: string) => api.get(`/jobs/${jobId}`),
 }
 

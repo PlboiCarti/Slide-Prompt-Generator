@@ -84,6 +84,11 @@ def generate_design_description(
     - density: Mật độ nội dung — số bullet tối đa, tỉ lệ chữ/hình, v.v.
     - visual: Hướng dẫn visual hierarchy, cách phối màu, không gian bố cục
     - Trả về JSON hợp lệ, KHÔNG markdown code fence
+    - QUAN TRỌNG: 
+        - Trả về JSON hợp lệ tuyệt đối
+        - Mỗi value phải là string 1 dòng duy nhất
+        - KHÔNG xuống dòng trong bất kỳ value nào
+        - Mỗi value tối đa 20 từ
 </rules>
 
 JSON Schema:
@@ -510,18 +515,12 @@ _CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
 
 
 def _safe_parse(raw: str) -> dict:
-    """
-    Parse JSON từ Gemini, tự xử lý code fence ```json...```.
-    Trả về dict rỗng nếu parse fail.
-    """
-    if not raw:
-        return {}
-
-    cleaned = raw.strip()
-    cleaned = _CODE_FENCE_RE.sub("", cleaned).strip()
-
     try:
+        cleaned = raw.strip()
+        cleaned = cleaned.lstrip("```json").lstrip("```").rstrip("```").strip()
+        cleaned = " ".join(cleaned.splitlines())
         return json.loads(cleaned)
     except json.JSONDecodeError as e:
-        logger.error(f"JSON parse error: {e} | raw[:300]: {raw[:300]}")
+        logger.error(f"JSON parse error: {e}")
+        logger.error(f"Full raw response:\n{raw}")  # ← bỏ [:300] để xem toàn bộ
         return {}

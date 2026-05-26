@@ -75,20 +75,24 @@ async def generate(
     # ── Content / PDF ─────────────────────────────────────────────────
     content: str       = Form("", max_length=100_000),
     pdf_file: UploadFile = File(None),
-    # ── Description từ Phase 1 (JSON string) ──────────────────────────
-    # Gửi dưới dạng JSON string vì endpoint là multipart (có File).
-    # Ví dụ: description='{"tone":"...","font":"...","key_message_rule":"...","density":"...","visual":"..."}'
-    # Nếu để trống, pipeline sẽ tự gọi generate_design_description() trong background.
-    description: str   = Form(""),
-    db: Session        = Depends(get_db),
+    # ── Description fields từ Phase 1 (5 field riêng lẻ) ─────────────
+    # Tách thành field riêng để Swagger UI hiển thị rõ ràng, tránh lỗi
+    # khi paste JSON string nhiều dòng vào form field.
+    # Nếu để trống hết, pipeline tự gọi generate_design_description().
+    desc_tone:             str = Form(""),
+    desc_font:             str = Form(""),
+    desc_key_message_rule: str = Form(""),
+    desc_density:          str = Form(""),
+    desc_visual:           str = Form(""),
+    db: Session = Depends(get_db),
 ):
     """
     Tạo Master Prompt từ text và/hoặc PDF.
     Job chạy async trong background thread — client poll GET /api/jobs/{job_id}.
 
-    **Gửi description:**
-    Nếu đã qua Phase 1, truyền kết quả (đã user chỉnh sửa) dưới dạng JSON string.
-    Nếu bỏ qua Phase 1, để trống — pipeline tự sinh description nhưng user không can thiệp được.
+    **Gửi description (từ Phase 1):**
+    Điền cả 5 field desc_* để dùng mô tả user đã chỉnh sửa.
+    Để trống hết → pipeline tự sinh description trong background (user không xem/sửa được).
     """
     # Phải có ít nhất 1 trong 2
     if not content.strip() and not pdf_file:
@@ -97,18 +101,17 @@ async def generate(
             detail="Phải cung cấp content hoặc pdf_file",
         )
 
-    # Parse description (JSON string → dict)
+    # Build description_dict từ 5 field riêng lẻ
     description_dict: dict = {}
-    if description.strip():
-        try:
-            description_dict = json.loads(description)
-            # Validate schema sớm — báo lỗi trước khi tạo job
-            DesignDescription(**description_dict)
-        except (json.JSONDecodeError, Exception) as e:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"description không hợp lệ: {e}",
-            )
+    desc_fields = {
+        "tone":             desc_tone.strip(),
+        "font":             desc_font.strip(),
+        "key_message_rule": desc_key_message_rule.strip(),
+        "density":          desc_density.strip(),
+        "visual":           desc_visual.strip(),
+    }
+    if all(desc_fields.values()):  # chỉ dùng nếu đủ cả 5 field
+        description_dict = desc_fields
 
     # Gộp content từ text + PDF
     final_content = await extract_content(
@@ -138,7 +141,7 @@ async def generate(
 
     logger.info(
         f"Job created: {str(job.id)[:8]} | purpose='{purpose[:40]}' | "
-        f"has_description={bool(description_dict)}"
+        f"has_description={bool(description_dict)} | has_content={bool(final_content.strip())}"
     )
 
     # Chạy pipeline trong background thread (daemon)
