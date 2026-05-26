@@ -2,8 +2,9 @@ from .content_extractor import extract_content
 from .email_service import send_email, send_verification_email
 from .llm_service import (
     assemble_master_prompt,
-    generate_master_prompt_structure,
-    split_content_to_slides,
+    fill_slide_contents,
+    generate_design_description,
+    generate_slide_structure,
 )
 
 __all__ = [
@@ -11,6 +12,7 @@ __all__ = [
     "send_email",
     "send_verification_email",
     "assemble_master_prompt",
-    "generate_master_prompt_structure",
-    "split_content_to_slides",
+    "fill_slide_contents",
+    "generate_design_description",
+    "generate_slide_structure",
 ]
