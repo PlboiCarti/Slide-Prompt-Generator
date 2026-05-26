@@ -85,10 +85,10 @@ def generate_design_description(
     - visual: Hướng dẫn visual hierarchy, cách phối màu, không gian bố cục
     - Trả về JSON hợp lệ, KHÔNG markdown code fence
     - QUAN TRỌNG: 
-        - Trả về JSON hợp lệ tuyệt đối
-        - Mỗi value phải là string 1 dòng duy nhất
-        - KHÔNG xuống dòng trong bất kỳ value nào
-        - Mỗi value tối đa 20 từ
+        + Trả về JSON hợp lệ tuyệt đối
+        + Mỗi value phải là string 1 dòng duy nhất
+        + KHÔNG xuống dòng trong bất kỳ value nào
+        + Mỗi value tối đa 30 từ
 </rules>
 
 JSON Schema:
@@ -251,7 +251,13 @@ def _split_batch(
     start_index: int = 1,
 ) -> list[str]:
     n = len(slide_titles)
-    lang_instr = "Trả lời bằng tiếng Việt." if language == "vi" else "Reply in English."
+    
+    lang_instr = (
+        "Toàn bộ nội dung PHẢI bằng tiếng Việt."
+        if language == "vi"
+        else "All content MUST be in English."
+    )
+
     titles_str = "\n".join(
         f"{start_index + i}. {t}" for i, t in enumerate(slide_titles)
     )
@@ -330,6 +336,8 @@ def assemble_master_prompt(
     purpose: str,
     audience: str,
     style: str,
+    primary_color: str,
+    primary_layout: str,
     design_description: DesignDescription,
     slides: list[SlideInstruction],
     language: str,
@@ -343,6 +351,8 @@ def assemble_master_prompt(
         purpose=purpose,
         audience=audience,
         style=style,
+        primary_color=primary_color,
+        primary_layout=primary_layout,
         design_description=design_description,
         slides=slides_sorted,
         language=language,
@@ -361,6 +371,8 @@ def _build_full_master_prompt(
     purpose: str,
     audience: str,
     style: str,
+    primary_color: str,
+    primary_layout: str,
     design_description: DesignDescription,
     slides: list[SlideInstruction],
     language: str,
@@ -370,19 +382,18 @@ def _build_full_master_prompt(
 
     if language == "vi":
         role_text = (
-            "Bạn là chuyên gia thiết kế slide thuyết trình chuyên nghiệp với nhiều năm kinh nghiệm. "
-            "Nhiệm vụ của bạn là tạo ra BỘ SLIDE POWERPOINT HOÀN CHỈNH dựa trên các yêu cầu dưới đây."
+            "Bạn là chuyên gia thiết kế slide PowerPoint với 10+ năm kinh nghiệm trong thiết kế trình bày trực quan và kể chuyện bằng dữ liệu. "
         )
         task_text = (
-            f"Dựa trên nội dung và chỉ dẫn dưới đây, thiết kế một **BỘ SLIDE THUYẾT TRÌNH "
-            f"CHUYÊN NGHIỆP** gồm {n} slide. "
-            f"Mục tiêu là **trực quan hóa thông tin**, đảm bảo mỗi slide sẵn sàng "
-            f"để trình diễn với câu chữ ngắn gọn, cô đọng và có tính tác động cao."
+            f"Hãy tạo BỘ SLIDE THUYẾT TRÌNH hoàn chỉnh cho toàn bộ nội dung sau đây gồm {n} slide "
+            f"Đọc kĩ INSTRUCTION VÀ CONTENT của từng slide "
+            f"Sau đó trình bày, bố trí nội dung và hình ảnh(nếu có) trong từng slide đẹp mắt, logic giữa các slide với nhau "
+            f"Đảm bảo phong cách thiết kế đồng nhất xuyên suốt cả bộ. Mỗi slide cần có tiêu đề. "
         )
         guideline_text = (
-            f"Mục đích: {purpose}\n"
-            f"Đối tượng người xem: {audience}\n"
-            f"Phong cách thiết kế: {style}"
+            f"Mục tiêu của bộ slide là {purpose}, hướng đến đối tượng {audience} "
+            f"với phong cách thiết kế {style}. "
+            f"Màu sắc chủ đạo là {primary_color} và layout chính theo dạng {primary_layout}."
         )
         desc_text = (
             f"Tone: {design_description.tone}\n"
@@ -392,19 +403,8 @@ def _build_full_master_prompt(
             f"Visual: {design_description.visual}"
         )
         format_text = (
-            f"File PowerPoint (.pptx) hoặc Google Slides link chứa {n} slide đầy đủ\n"
-            f"Mỗi slide tuân thủ 100% yêu cầu nội dung + thiết kế dưới đây\n"
-            f"Không là Markdown, không là text — là slide thực tế có thể trình bày\n"
-            f"Số lượng bullet: tối thiểu 3, tối đa 5 bullet/slide\n\n"
-            f"Với MỖI slide, hãy trả về theo cấu trúc:\n"
-            f"\n## Slide [Số thứ tự] — [Tiêu đề Slide]\n"
-            f"**Mục tiêu Slide:** [bám theo TITLE]\n"
-            f"**Chữ trên slide (On-Slide Text):**\n"
-            f"• [Ý chính 1 — tối đa 15 từ]\n"
-            f"• [Ý chính 2 — tối đa 15 từ]\n"
-            f"• [Ý chính 3 — tối đa 15 từ]\n"
-            f"**Yếu tố hình ảnh:** [Gợi ý icon, biểu đồ, hình ảnh]\n"
-            f"**Ghi chú diễn giả:** [1–2 câu kịch bản]"
+            f"Output phải là file thuyết trình thực tế (.pptx) mở được trong PowerPoint/Google Slides\n"
+            f"KHÔNG phải code, KHÔNG phải mô tả bằng văn bản.\n"
         )
         note_text = (
             "NỘI DUNG trên slide phải dựa trên thông tin thực tế từ tài liệu gốc. "
@@ -423,17 +423,18 @@ def _build_full_master_prompt(
         }
     else:
         role_text = (
-            "You are a professional slide designer with years of experience. "
-            "Your task is to create a COMPLETE POWERPOINT PRESENTATION based on the requirements below."
+            "You are a PowerPoint slide design expert with 10+ years of experience in visual presentation design and data storytelling. "
         )
         task_text = (
-            f"Based on the content and instructions below, design a PROFESSIONAL PRESENTATION DECK "
-            f"of {n} slides."
+            f"Please create a complete PRESENTATION DECK for the following content consisting of {n} slides. "
+            f"Read the INSTRUCTION AND CONTENT of each slide carefully. "
+            f"Then present, arrange the content and images (if any) in each slide beautifully and logically with each other. "
+            f"Ensure a consistent design style throughout the deck. Each slide must have a title. "
         )
         guideline_text = (
-            f"Purpose: {purpose}\n"
-            f"Target audience: {audience}\n"
-            f"Design style: {style}"
+            f"The goal of this presentation is {purpose}, targeting {audience} "
+            f"with a {style} design style. "
+            f"The primary color is {primary_color} and the main layout follows the {primary_layout} format."
         )
         desc_text = (
             f"Tone: {design_description.tone}\n"
@@ -443,16 +444,8 @@ def _build_full_master_prompt(
             f"Visual: {design_description.visual}"
         )
         format_text = (
-            f"PowerPoint file (.pptx) or Google Slides link with {n} slides.\n"
-            f"Each slide must comply 100% with the content + design rules.\n"
-            f"Minimum 3, maximum 5 bullets per slide.\n\n"
-            f"For EACH slide:\n"
-            f"\n## Slide [number] — [Title]\n"
-            f"**Main Content:**\n"
-            f"• [Bullet 1 — max 15 words]\n"
-            f"• [Bullet 2 — max 15 words]\n"
-            f"• [Bullet 3 — max 15 words]\n"
-            f"\n**Speaker Notes:** [1–2 sentences]"
+            f"The output must be an actual presentation file (.pptx) that can be opened in PowerPoint/Google Slides.\n"
+            f"NOT code, NOT written descriptions.\n"
         )
         note_text = (
             "Use factual information from the source document. "

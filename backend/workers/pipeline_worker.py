@@ -112,6 +112,8 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
             purpose=purpose,
             audience=audience,
             style=style,
+            primary_color=primary_color,
+            primary_layout=primary_layout,
             design_description=design_description,
             slides=slides,
             language=language,

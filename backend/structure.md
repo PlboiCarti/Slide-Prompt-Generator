@@ -409,3 +409,8 @@ B4: assemble_master_prompt()     → MasterPromptResult
 | Các ô Tone/Font **không gọi API** | Chỉ cập nhật React state — API chỉ được gọi 2 lần cố định |
 | Form **thu gọn** (không ẩn hoàn toàn) | User cần thấy mình đã chọn gì để hiểu mô tả AI đang dựa trên thông tin nào |
 | Có nút **Sinh lại** | Nếu AI sinh mô tả không ưng, bấm sinh lại mà không cần quay về nhập lại từ đầu |
+
+
+==== TÍNH NĂNG THÊM VÀO ====
+# Xử Lý PDF scan
+Frontend -> Gửi PDF -> Backend lưu file tạm -> Backend upload file lên Gemini API -> Gemini tự quét chữ và trả về kết quả cho Backend.
