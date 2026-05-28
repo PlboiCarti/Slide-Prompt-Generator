@@ -99,11 +99,11 @@ def generate_design_description(
     - density: Mật độ nội dung — số bullet tối đa, tỉ lệ chữ/hình, v.v.
     - visual: Hướng dẫn visual hierarchy, cách phối màu, không gian bố cục
     - Trả về JSON hợp lệ, KHÔNG markdown code fence
-    - QUAN TRỌNG: 
+    - QUAN TRỌNG:
         + Trả về JSON hợp lệ tuyệt đối
         + Mỗi value phải là string 1 dòng duy nhất
         + KHÔNG xuống dòng trong bất kỳ value nào
-        + Mỗi value tối đa 30 từ
+        + Mỗi value tối đa 60 từ, đủ cụ thể và sinh động
 </rules>
 
 JSON Schema:
@@ -118,7 +118,7 @@ JSON Schema:
     with _timed("Phase1 generate_design_description"):
         resp = _model().generate_content(
             prompt,
-            generation_config=_json_config(temp=0.3, tokens=2000),
+            generation_config=_json_config(temp=0.7, tokens=2000),
         )
 
     parsed = _safe_parse(resp.text)
@@ -190,7 +190,7 @@ JSON Schema:
     with _timed(f"B2 generate_slide_structure ({slide_count} slides)"):
         resp = _model().generate_content(
             prompt,
-            generation_config=_json_config(temp=0.3, tokens=3000),
+            generation_config=_json_config(temp=0.5, tokens=3000),
         )
 
     parsed = _safe_parse(resp.text)
