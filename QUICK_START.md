@@ -7,7 +7,7 @@
 | Backend | Python + FastAPI + Uvicorn |
 | Database | SQLite (file local) |
 | AI | Google Gemini API |
-| Auth | JWT + bcrypt + Google OAuth |
+| Auth | JWT + Argon2 (pwdlib) + Google OAuth |
 | Rate Limiting | In-memory (không cần Redis) |
 | Frontend | React + Vite |
 
@@ -96,9 +96,13 @@ GOOGLE_REDIRECT_URI=http://localhost:8000/api/auth/google/callback
 # ==================== FRONTEND ====================
 FRONTEND_URL=http://localhost:5173
 
-# ==================== RATE LIMITING ====================
+# ==================== RATE LIMITING — LOGIN ====================
 MAX_LOGIN_ATTEMPTS=5
 LOCKOUT_MINUTES=15
+
+# ==================== RATE LIMITING — GENERATE ====================
+MAX_GENERATE_ATTEMPTS=5
+GENERATE_LOCKOUT_MINUTES=10
 ```
 
 ### 4. Chạy Backend
@@ -131,7 +135,7 @@ npm install
 npm run dev
 ```
 
-Mở trình duyệt: http://localhost:5173
+Mở trình duyệt: http://localhost:3000
 
 ---
 
@@ -188,10 +192,29 @@ curl -X POST http://localhost:8000/api/auth/login \
 # Response: { "access_token": "...", "user": {...} }
 ```
 
-### Tạo Master Prompt
+### (Tùy chọn) Phase 1 — Gợi ý thiết kế
+
+```bash
+curl -X POST http://localhost:8000/api/generate-description \
+  -H "Content-Type: application/json" \
+  -d '{
+    "purpose": "pitch",
+    "audience": "investor",
+    "style": "minimalist",
+    "primary_layout": "key_message",
+    "primary_color": "#FF6B35",
+    "language": "vi"
+  }'
+# Response: { "tone": "...", "font": "...", "key_message_rule": "...", "density": "...", "visual": "..." }
+```
+
+### Phase 2 — Tạo Master Prompt
+
+> **Lưu ý:** endpoint `/api/generate` yêu cầu Bearer token. Đăng nhập trước để lấy `access_token`.
 
 ```bash
 curl -X POST http://localhost:8000/api/generate \
+  -H "Authorization: Bearer <access_token>" \
   -F "purpose=pitch" \
   -F "audience=investor" \
   -F "style=minimalist" \
@@ -286,6 +309,7 @@ Kiểm tra backend đang chạy ở `http://localhost:8000` và CORS đã đư�
 | **Rate limit reset khi restart** | Bộ đếm đăng nhập sai cũng lưu in-memory. |
 | **Database giữ nguyên** | SQLite là file, không bị mất khi restart. |
 | **Gemini rate limit** | Model `gemini-2.5-flash` giới hạn 5 req/phút. Job xử lý có `time.sleep(12)` để tránh lỗi. |
+| **Generate rate limit** | Mỗi user bị giới hạn `MAX_GENERATE_ATTEMPTS=5` lần / `GENERATE_LOCKOUT_MINUTES=10` phút. Reset khi restart server. |
 
 ---
 

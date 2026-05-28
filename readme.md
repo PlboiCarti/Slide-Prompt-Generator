@@ -48,8 +48,8 @@ Thay vì tự viết prompt thủ công, người dùng chỉ cần:
 | **Database** | SQLite + SQLAlchemy ORM |
 | **AI** | Google Gemini API (`gemini-2.5-flash`) |
 | **Auth** | JWT (PyJWT), Argon2 (pwdlib), Google OAuth (Authlib) |
-| **Frontend** | React 18, Vite, React Router v6 |
-| **Rate Limiting** | In-memory (LoginAttemptTracker) |
+| **Frontend** | React 18 + TypeScript, Vite, React Router v6 |
+| **Rate Limiting** | In-memory (LoginAttemptTracker) — login & generate |
 | **PDF Parsing** | pypdf |
 | **Retry Logic** | tenacity |
 
@@ -108,11 +108,10 @@ PromptBuilder/
 ├── backend/
 │   ├── main.py                  # Entry point FastAPI
 │   ├── requirements.txt
-│   ├── .env                     # Config 
+│   ├── .env                     # Config
 │   │
 │   ├── api/                     # HTTP routes
-│   │   ├── __init__.py
-│   │   ├── prompt_router.py     # POST /generate, GET /jobs/{id}
+│   │   ├── prompt_router.py     # POST /generate-description, /generate, GET /jobs/{id}
 │   │   └── auth_router.py       # Register, login, OAuth, me
 │   │
 │   ├── core/                    # Auth core
@@ -137,36 +136,33 @@ PromptBuilder/
 │   │   ├── auth_service.py      # Register, login, Google OAuth
 │   │   ├── llm_service.py       # Gemini: sinh Master Prompt
 │   │   ├── content_extractor.py # Text + PDF extraction
-│   │   ├── intent_detector.py   # (dự phòng) AI intent detection
-│   │   └── intent_dictionary.py # Từ điển intent options
+│   │   └── email_service.py     # SMTP hoặc console fallback
 │   │
 │   ├── workers/
 │   │   └── pipeline_worker.py   # Background thread pipeline
 │   │
 │   └── utils/
 │       ├── config.py            # Settings (pydantic-settings)
-│       └── rate_limiter.py      # Login attempt tracker
+│       └── rate_limiter.py      # Login & generate attempt tracker
 │
 └── frontend/
     ├── package.json
-    ├── vite.config.js
+    ├── vite.config.ts
     └── src/
-        ├── App.jsx              # Router setup
-        ├── main.jsx
+        ├── App.tsx              # Router setup
+        ├── main.tsx
         ├── index.css
-        ├── api/
-        │   ├── auth.js          # Auth API calls
-        │   └── prompt.js        # Generate + poll job
+        ├── services/
+        │   └── api.ts           # axios instance + auth/prompt API calls
         ├── context/
-        │   └── AuthContext.jsx  # Global auth state
+        │   └── AuthContext.tsx  # Global auth state
         ├── pages/
-        │   ├── LoginPage.jsx
-        │   ├── RegisterPage.jsx
-        │   ├── HomePage.jsx     # Prompt Builder UI
-        │   └── CallbackPage.jsx # Google OAuth callback
+        │   ├── LoginPage.tsx
+        │   ├── RegisterPage.tsx
+        │   ├── GeneratePage.tsx # Prompt Builder UI (2 Phase)
+        │   └── CallbackPage.tsx # Google OAuth callback
         └── components/
-            ├── Navbar.jsx
-            └── ProtectedRoute.jsx
+            └── ProtectedRoute.tsx
 ```
 
 ---
@@ -204,7 +200,7 @@ uvicorn main:app --reload
 cd frontend
 npm install
 npm run dev
-# → http://localhost:5173
+# → http://localhost:3000
 ```
 
 ---
@@ -232,9 +228,13 @@ GOOGLE_REDIRECT_URI=http://localhost:8000/api/auth/google/callback
 # Frontend
 FRONTEND_URL=http://localhost:5173
 
-# Rate limiting
+# Rate limiting — đăng nhập
 MAX_LOGIN_ATTEMPTS=5
 LOCKOUT_MINUTES=15
+
+# Rate limiting — sinh prompt
+MAX_GENERATE_ATTEMPTS=5
+GENERATE_LOCKOUT_MINUTES=10
 ```
 
 ---
@@ -250,15 +250,16 @@ LOCKOUT_MINUTES=15
 | GET | `/api/auth/verify-email?token=` | Xác thực email |
 | GET | `/api/auth/google` | Bắt đầu Google OAuth |
 | GET | `/api/auth/google/callback` | Google OAuth callback |
-| GET | `/api/auth/me` | Thông tin user hiện tại |
+| GET | `/api/auth/me` | Thông tin user hiện tại (yêu cầu auth) |
 | POST | `/api/auth/logout` | Đăng xuất |
 
 ### Prompt Generation
 
-| Method | Endpoint | Mô tả |
-|--------|----------|-------|
-| POST | `/api/generate` | Tạo job sinh Master Prompt |
-| GET | `/api/jobs/{job_id}` | Kiểm tra trạng thái job |
+| Method | Endpoint | Auth | Mô tả |
+|--------|----------|------|-------|
+| POST | `/api/generate-description` | Không | Phase 1 — phân tích & gợi ý thiết kế (sync, ~3–5s) |
+| POST | `/api/generate` | **Bắt buộc** | Phase 2 — tạo job sinh Master Prompt (async) |
+| GET | `/api/jobs/{job_id}` | Không | Kiểm tra trạng thái job |
 
 ### Job Status
 
@@ -274,9 +275,11 @@ PENDING → PROCESSING → COMPLETED
 | Vấn đề | Giải thích |
 |---|---|
 | Verify token mất sau restart | Token xác thực email lưu in-memory. Restart uvicorn → phải register lại. |
-| Rate limit reset khi restart | Bộ đếm đăng nhập sai cũng in-memory, reset khi restart. |
+| Rate limit reset khi restart | Bộ đếm đăng nhập sai & generate cũng in-memory, reset khi restart. |
+| Rate limit generate | `MAX_GENERATE_ATTEMPTS=5` / `GENERATE_LOCKOUT_MINUTES=10` — giới hạn số lần tạo prompt liên tiếp theo user. |
 | Gemini rate limit | `gemini-2.5-flash`: 5 req/phút. Pipeline có delay để tránh lỗi 429. |
 | Google OAuth cần cấu hình | Phải thêm redirect URI vào Google Cloud Console. |
+| Phase 1 không cần auth | `POST /api/generate-description` không yêu cầu đăng nhập. `POST /api/generate` yêu cầu Bearer token. |
 
 ---
 

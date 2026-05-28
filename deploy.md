@@ -127,3 +127,34 @@ uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 
 > Không dùng `--reload` trên production.
+
+---
+
+## Procfile (Railway / Render)
+
+```
+web: uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+Đặt file này trong thư mục `backend/`.
+
+---
+
+## Build frontend cho production
+
+```bash
+cd frontend
+VITE_API_URL=https://your-backend/api npm run build
+```
+
+Folder `dist/` sinh ra là static files. Deploy lên Vercel bằng cách push repo và set biến môi trường `VITE_API_URL` trên dashboard Vercel.
+
+---
+
+## Biến môi trường bổ sung
+
+```env
+# Rate limiting — generate prompt (thêm vào backend env vars)
+MAX_GENERATE_ATTEMPTS=5
+GENERATE_LOCKOUT_MINUTES=10
+```
