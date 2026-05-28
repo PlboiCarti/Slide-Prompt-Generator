@@ -74,6 +74,8 @@ def generate_design_description(
         else "All content MUST be in English."
     )
 
+    language_type = "Tiếng Việt" if language == "vi" else "English"
+
     prompt = f"""
 <task>
     Bạn là chuyên gia thiết kế slide thuyết trình chuyên nghiệp.
@@ -92,7 +94,7 @@ def generate_design_description(
 <rules>
     - {lang_instr}
     - tone: Giọng điệu và cảm xúc phù hợp với mục đích + đối tượng (1–2 câu ngắn gọn)
-    - font: Đúng 1 tên font chữ duy nhất — KHÔNG dùng "hoặc", không giải thích
+    - font: Đúng 1 tên font chữ duy nhất — KHÔNG dùng "hoặc", không giải thích, chỉ chọn Font chữ có hỗ trợ {language_type}
     - key_message_rule: Cách trình bày ý chính trên slide (ngắn, súc tích, in đậm, v.v.)
     - density: Mật độ nội dung — số bullet tối đa, tỉ lệ chữ/hình, v.v.
     - visual: Hướng dẫn visual hierarchy, cách phối màu, không gian bố cục
