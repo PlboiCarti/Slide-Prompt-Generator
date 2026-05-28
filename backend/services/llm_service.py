@@ -342,8 +342,9 @@ def _recursive_summarize(content: str, language: str, max_len: int = 12_000) -> 
                     temperature=0.1, max_output_tokens=1000,
                 ),
             )
-        summaries.append(resp.text.strip())
-        logger.info(f"  chunk {i + 1}/{len(chunks)} summarized: {len(chunk)} → {len(resp.text.strip())} ký tự")
+        text = resp.text or ""
+        summaries.append(text.strip())
+        logger.info(f"  chunk {i + 1}/{len(chunks)} summarized: {len(chunk)} → {len(text.strip())} ký tự")
 
     combined = "\n\n".join(summaries)
     if len(combined) > max_len:
