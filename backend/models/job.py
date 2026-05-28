@@ -1,7 +1,6 @@
 """
 models/job.py — Bảng jobs (async processing)
 """
-import json
 import uuid
 from datetime import datetime
 
@@ -23,10 +22,3 @@ class Job(Base):
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
 
-    @property
-    def input_dict(self) -> dict:
-        return json.loads(self.input_payload) if self.input_payload else {}
-
-    @property
-    def output_dict(self) -> dict:
-        return json.loads(self.result_payload) if self.result_payload else {}

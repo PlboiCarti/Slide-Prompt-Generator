@@ -18,11 +18,6 @@ class UserLogin(BaseModel):
     password: str
 
 
-class EmailVerifyRequest(BaseModel):
-    """Body để xác thực email từ token."""
-    token: str
-
-
 # ── OUTPUT (response) ─────────────────────────────────────────────────
 class UserResponse(BaseModel):
     """Thông tin user trả về — KHÔNG có password."""
