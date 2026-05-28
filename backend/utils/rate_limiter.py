@@ -14,55 +14,59 @@ settings = get_settings()
 
 class LoginAttemptTracker:
     """
-    Theo dõi số lần đăng nhập sai theo email.
+    Theo dõi số lần thử theo key (email hoặc user_id).
     Dùng dict + Lock để thread-safe.
-    Tự động xoá các lần thử cũ ngoài cửa sổ LOCKOUT_MINUTES.
+    Tự động xoá các lần thử cũ ngoài cửa sổ lockout_minutes.
     """
 
-    def __init__(self):
-        # email -> list[datetime] (các thời điểm fail)
+    def __init__(self, max_attempts: int, lockout_minutes: int):
+        self._max_attempts = max_attempts
+        self._lockout_minutes = lockout_minutes
         self._attempts: dict[str, list[datetime]] = {}
         self._lock = Lock()
 
-    def record_failed_attempt(self, email: str) -> None:
-        """Ghi nhận 1 lần đăng nhập thất bại."""
+    def record_failed_attempt(self, key: str) -> None:
+        """Ghi nhận 1 lần thử."""
         with self._lock:
             now = datetime.utcnow()
-            self._cleanup_unlocked(email, now)
-            self._attempts.setdefault(email, []).append(now)
+            self._cleanup_unlocked(key, now)
+            self._attempts.setdefault(key, []).append(now)
 
-    def is_locked(self, email: str) -> bool:
+    def is_locked(self, key: str) -> bool:
         """Có bị khoá tạm thời không?"""
         with self._lock:
             now = datetime.utcnow()
-            self._cleanup_unlocked(email, now)
-            return len(self._attempts.get(email, [])) >= settings.MAX_LOGIN_ATTEMPTS
+            self._cleanup_unlocked(key, now)
+            return len(self._attempts.get(key, [])) >= self._max_attempts
 
-    def get_attempts(self, email: str) -> int:
-        """Trả về số lần thất bại trong cửa sổ hiện tại."""
+    def get_attempts(self, key: str) -> int:
+        """Trả về số lần thử trong cửa sổ hiện tại."""
         with self._lock:
             now = datetime.utcnow()
-            self._cleanup_unlocked(email, now)
-            return len(self._attempts.get(email, []))
+            self._cleanup_unlocked(key, now)
+            return len(self._attempts.get(key, []))
 
-    def reset(self, email: str) -> None:
+    def reset(self, key: str) -> None:
         """Xoá counter (gọi sau khi login thành công)."""
         with self._lock:
-            self._attempts.pop(email, None)
+            self._attempts.pop(key, None)
 
-    def _cleanup_unlocked(self, email: str, now: datetime) -> None:
-        """
-        Xoá các lần thử ngoài cửa sổ thời gian.
-        CHỈ gọi khi đã giữ lock.
-        """
-        cutoff = now - timedelta(minutes=settings.LOCKOUT_MINUTES)
-        if email in self._attempts:
-            self._attempts[email] = [
-                t for t in self._attempts[email] if t > cutoff
-            ]
-            if not self._attempts[email]:
-                self._attempts.pop(email, None)
+    def _cleanup_unlocked(self, key: str, now: datetime) -> None:
+        """Xoá các lần thử ngoài cửa sổ thời gian. CHỈ gọi khi đã giữ lock."""
+        cutoff = now - timedelta(minutes=self._lockout_minutes)
+        if key in self._attempts:
+            self._attempts[key] = [t for t in self._attempts[key] if t > cutoff]
+            if not self._attempts[key]:
+                self._attempts.pop(key, None)
 
 
 # Singleton dùng chung toàn app
-login_tracker = LoginAttemptTracker()
+login_tracker = LoginAttemptTracker(
+    max_attempts=settings.MAX_LOGIN_ATTEMPTS,
+    lockout_minutes=settings.LOCKOUT_MINUTES,
+)
+
+generate_tracker = LoginAttemptTracker(
+    max_attempts=settings.MAX_GENERATE_ATTEMPTS,
+    lockout_minutes=settings.GENERATE_LOCKOUT_MINUTES,
+)

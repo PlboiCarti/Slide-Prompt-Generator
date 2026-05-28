@@ -14,12 +14,15 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from core.dependencies import get_current_user
 from database.connection import get_db
 from models.job import Job
+from models.user import User
 from schemas.jobs import GenerateResponse, JobStatusResponse
 from schemas.prompt import DescribeRequest, DesignDescription
 from services.content_extractor import extract_content
 from services.llm_service import generate_design_description
+from utils.rate_limiter import generate_tracker
 from workers.pipeline_worker import run_pipeline_in_thread
 
 logger = logging.getLogger(__name__)
@@ -90,6 +93,7 @@ async def generate(
     desc_key_message_rule: str = Form(""),
     desc_density:          str = Form(""),
     desc_visual:           str = Form(""),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -100,6 +104,14 @@ async def generate(
     Điền cả 5 field desc_* để dùng mô tả user đã chỉnh sửa.
     Để trống hết → pipeline tự sinh description trong background (user không xem/sửa được).
     """
+    # Rate limit theo user
+    if generate_tracker.is_locked(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Bạn đang gửi quá nhiều yêu cầu. Vui lòng thử lại sau vài phút.",
+        )
+    generate_tracker.record_failed_attempt(current_user.id)
+
     # Phải có ít nhất 1 trong 2
     if not content.strip() and not pdf_file:
         raise HTTPException(

@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     MAX_LOGIN_ATTEMPTS: int = 5
     LOCKOUT_MINUTES: int = 15
 
+    MAX_GENERATE_ATTEMPTS: int = 5
+    GENERATE_LOCKOUT_MINUTES: int = 10
+
     # ── Email verification ─────────────────────────────────────────────
     EMAIL_VERIFY_TTL_HOURS: int = 24
 
