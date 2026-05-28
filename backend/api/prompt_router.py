@@ -16,6 +16,9 @@ from sqlalchemy.orm import Session
 
 from core.dependencies import get_current_user
 from database.connection import get_db
+from utils.config import get_settings as _get_settings
+
+_settings = _get_settings()
 from models.job import Job
 from models.user import User
 from schemas.jobs import GenerateResponse, JobStatusResponse
@@ -78,7 +81,7 @@ async def generate(
     audience: str      = Form(..., min_length=3, max_length=200),
     style: str         = Form("minimalist"),
     primary_color: str = Form("#FF6B35"),
-    slide_count: int   = Form(6, ge=3, le=30),
+    slide_count: int   = Form(6, ge=_settings.min_slides_limit, le=_settings.max_slides_limit),
     primary_layout: str = Form("key_message"),
     language: str      = Form("vi"),
     # ── Content / PDF ─────────────────────────────────────────────────

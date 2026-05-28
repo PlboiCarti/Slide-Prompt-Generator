@@ -24,7 +24,8 @@ class Settings(BaseSettings):
     # ── Gemini LLM ─────────────────────────────────────────────────────
     gemini_api_key: str = ""
     llm_model: str = "gemini-2.5-flash"
-    max_slides_limit: int = 50
+    min_slides_limit: int = 3
+    max_slides_limit: int = 30
 
     # ── JWT ────────────────────────────────────────────────────────────
     # Default value đủ 32 ký tự để dev không crash. Production PHẢI override.

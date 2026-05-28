@@ -10,7 +10,6 @@ pydantic-settings
 # Database
 sqlalchemy
 psycopg2-binary
-alembic
 
 # LLM
 google-generativeai
