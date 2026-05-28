@@ -51,6 +51,19 @@ class LoginAttemptTracker:
         with self._lock:
             self._attempts.pop(key, None)
 
+    def time_until_unlock(self, key: str) -> int:
+        """Số giây còn lại cho đến khi lock hết hiệu lực. 0 nếu không bị lock."""
+        with self._lock:
+            now = datetime.utcnow()
+            self._cleanup_unlocked(key, now)
+            attempts = self._attempts.get(key, [])
+            if len(attempts) < self._max_attempts:
+                return 0
+            oldest = min(attempts)
+            unlock_at = oldest + timedelta(minutes=self._lockout_minutes)
+            remaining = (unlock_at - now).total_seconds()
+            return max(0, int(remaining))
+
     def _cleanup_unlocked(self, key: str, now: datetime) -> None:
         """Xoá các lần thử ngoài cửa sổ thời gian. CHỈ gọi khi đã giữ lock."""
         cutoff = now - timedelta(minutes=self._lockout_minutes)

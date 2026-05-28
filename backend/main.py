@@ -65,9 +65,10 @@ app.include_router(auth_router, prefix="/api")
 
 @app.get("/", tags=["Health Check"])
 def root():
+    base = _settings.BASE_URL.rstrip("/")
     return {
         "app": "Prompt Builder",
-        "docs": "http://localhost:8000/docs",
+        "docs": f"{base}/docs",
         "endpoints": {
             "generate": "POST /api/generate",
             "status": "GET  /api/jobs/{job_id}",

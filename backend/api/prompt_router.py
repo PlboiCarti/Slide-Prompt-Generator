@@ -31,6 +31,15 @@ from workers.pipeline_worker import run_pipeline_in_thread
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# Tên hiển thị cho từng desc field để thông báo lỗi rõ ràng hơn
+_DESC_FIELD_LABELS = {
+    "tone":             "desc_tone (giọng điệu / tông văn bản)",
+    "font":             "desc_font (kiểu chữ / font chữ)",
+    "key_message_rule": "desc_key_message_rule (quy tắc thông điệp chính mỗi slide)",
+    "density":          "desc_density (mật độ thông tin trên slide)",
+    "visual":           "desc_visual (yếu tố hình ảnh / màu sắc minh hoạ)",
+}
+
 
 # ══════════════════════════════════════════════════════════════════════
 # PHASE 1 — Sinh mô tả thiết kế (synchronous)
@@ -109,17 +118,22 @@ async def generate(
     """
     # Rate limit theo user
     if generate_tracker.is_locked(current_user.id):
+        retry_after = generate_tracker.time_until_unlock(current_user.id)
+        minutes = max(1, round(retry_after / 60))
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Bạn đang gửi quá nhiều yêu cầu. Vui lòng thử lại sau vài phút.",
+            detail=(
+                f"Bạn đã gửi quá nhiều yêu cầu. "
+                f"Vui lòng thử lại sau khoảng {minutes} phút."
+            ),
+            headers={"Retry-After": str(retry_after)},
         )
-    generate_tracker.record_failed_attempt(current_user.id)
 
     # Phải có ít nhất 1 trong 2
     if not content.strip() and not pdf_file:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Phải cung cấp content hoặc pdf_file",
+            detail="Phải cung cấp ít nhất một trong hai: nội dung văn bản (content) hoặc file PDF.",
         )
 
     # Build description_dict từ 5 field riêng lẻ
@@ -135,11 +149,20 @@ async def generate(
         # User có ý định gửi description → báo lỗi ngay nếu thiếu field
         missing = [k for k, v in desc_fields.items() if not v]
         if missing:
+            missing_labels = [_DESC_FIELD_LABELS.get(k, k) for k in missing]
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Description thiếu các field: {', '.join(missing)}",
+                detail=(
+                    f"Bạn đã điền một số trường mô tả thiết kế nhưng còn thiếu "
+                    f"{len(missing)} trường sau: {', '.join(missing_labels)}. "
+                    f"Vui lòng điền đầy đủ cả 5 trường hoặc để trống tất cả "
+                    f"(để hệ thống tự sinh)."
+                ),
             )
         description_dict = desc_fields
+
+    # Ghi nhận attempt SAU KHI validate xong — tránh hao slot vì lỗi form
+    generate_tracker.record_failed_attempt(current_user.id)
 
     # Gộp content từ text + PDF
     final_content = await extract_content(
