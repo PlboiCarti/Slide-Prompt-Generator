@@ -529,7 +529,7 @@ def _build_full_master_prompt(
 
 # ── Helper ─────────────────────────────────────────────────────────────
 # Xóa markdown code fence (```json ... ```) nếu model trả về
-_CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE | re.MULTILINE)
+_CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*\n|\n\s*```\s*$", re.IGNORECASE)
 
 
 def _safe_parse(raw: str) -> dict:
