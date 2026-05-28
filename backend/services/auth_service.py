@@ -73,7 +73,7 @@ class AuthService:
         logger.info(f"User registered: {user.email} (id={str(user.id)[:8]})")
 
         # Bước 4: Gửi email verify
-        verify_url = f"http://localhost:8000/api/auth/verify-email?token={verify_token}"
+        verify_url = f"{settings.BASE_URL}/api/auth/verify-email?token={verify_token}"
         sent = send_verification_email(user.email, verify_url)
         if not sent:
             # SMTP chưa config hoặc fail → log ra thay vì print
