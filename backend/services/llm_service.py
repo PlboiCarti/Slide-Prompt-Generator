@@ -236,13 +236,18 @@ def fill_slide_contents(
     n = len(slide_titles)
 
     # Chia batch nếu > 10 slides để tránh prompt quá dài
-    if n > 10:
-        mid = n // 2
-        first_contents = _split_batch(content, slide_titles[:mid], language, start_index=1)
-        second_contents = _split_batch(content, slide_titles[mid:], language, start_index=mid + 1)
-        all_contents = first_contents + second_contents
-    else:
-        all_contents = _split_batch(content, slide_titles, language, start_index=1)
+    try:
+        if n > 10:
+            mid = n // 2
+            first_contents = _split_batch(content, slide_titles[:mid], language, start_index=1)
+            second_contents = _split_batch(content, slide_titles[mid:], language, start_index=mid + 1)
+            all_contents = first_contents + second_contents
+        else:
+            all_contents = _split_batch(content, slide_titles, language, start_index=1)
+    except Exception:
+        # Sau 3 lần retry vẫn lỗi → fallback về content rỗng, không crash job
+        logger.warning("B3 _split_batch thất bại sau retry — tiếp tục với content rỗng")
+        all_contents = [""] * n
 
     # Trả về list[SlideInstruction] mới với content đã điền
     result: list[SlideInstruction] = []
@@ -259,6 +264,7 @@ def fill_slide_contents(
     return result
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
 def _split_batch(
     content: str,
     slide_titles: list[str],
