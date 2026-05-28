@@ -2,6 +2,7 @@
 utils/config.py — Cấu hình ứng dụng, đọc từ .env
 """
 from functools import lru_cache
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -59,6 +60,17 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM_EMAIL: str = ""        # email người gửi hiển thị
     SMTP_FROM_NAME: str = "Prompt Builder"
+
+    @model_validator(mode="after")
+    def check_production_secrets(self) -> "Settings":
+        if self.is_production and "dev_only" in self.JWT_SECRET_KEY:
+            raise ValueError(
+                "JWT_SECRET_KEY chưa được đổi cho production! "
+                "Chạy lệnh sau để tạo key mạnh:\n"
+                "  python -c \"import secrets; print(secrets.token_hex(32))\"\n"
+                "Sau đó set JWT_SECRET_KEY=<key> trong file .env"
+            )
+        return self
 
     @property
     def smtp_enabled(self) -> bool:
