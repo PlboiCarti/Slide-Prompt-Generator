@@ -78,6 +78,12 @@ async def _extract_pdf(pdf_file: UploadFile) -> str:
     import pypdf  # local import — chỉ load khi cần
 
     raw_bytes = await pdf_file.read()
+
+    if not raw_bytes.startswith(b"%PDF"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File không phải PDF hợp lệ",
+        )
     reader = pypdf.PdfReader(io.BytesIO(raw_bytes))
 
     pages: list[str] = []
