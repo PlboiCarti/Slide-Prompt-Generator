@@ -103,6 +103,7 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
                 slides=slides,
                 content=content,
                 language=language,
+                design_description=design_description,
             )
         else:
             logger.info(f"[{job_id[:8]}] B3: no content provided — skipped")

@@ -219,6 +219,7 @@ def fill_slide_contents(
     slides: list[SlideInstruction],
     content: str,
     language: str,
+    design_description: DesignDescription | None = None,
 ) -> list[SlideInstruction]:
     """
     Phase 2, bước B3 — Ghép content từ tài liệu vào từng slide.
@@ -235,15 +236,31 @@ def fill_slide_contents(
     slide_titles = [s.title for s in slides]
     n = len(slide_titles)
 
+    tone            = design_description.tone            if design_description else ""
+    density         = design_description.density         if design_description else ""
+    key_message_rule = design_description.key_message_rule if design_description else ""
+
     # Chia batch nếu > 10 slides để tránh prompt quá dài
     try:
         if n > 10:
             mid = n // 2
-            first_contents = _split_batch(content, slide_titles[:mid], language, start_index=1)
-            second_contents = _split_batch(content, slide_titles[mid:], language, start_index=mid + 1)
+            first_contents = _split_batch(
+                content, slide_titles[:mid], language,
+                tone=tone, density=density, key_message_rule=key_message_rule,
+                start_index=1,
+            )
+            second_contents = _split_batch(
+                content, slide_titles[mid:], language,
+                tone=tone, density=density, key_message_rule=key_message_rule,
+                start_index=mid + 1,
+            )
             all_contents = first_contents + second_contents
         else:
-            all_contents = _split_batch(content, slide_titles, language, start_index=1)
+            all_contents = _split_batch(
+                content, slide_titles, language,
+                tone=tone, density=density, key_message_rule=key_message_rule,
+                start_index=1,
+            )
     except Exception:
         # Sau 3 lần retry vẫn lỗi → fallback về content rỗng, không crash job
         logger.warning("B3 _split_batch thất bại sau retry — tiếp tục với content rỗng")
@@ -269,10 +286,13 @@ def _split_batch(
     content: str,
     slide_titles: list[str],
     language: str,
+    tone: str = "",
+    density: str = "",
+    key_message_rule: str = "",
     start_index: int = 1,
 ) -> list[str]:
     n = len(slide_titles)
-    
+
     lang_instr = (
         "Toàn bộ nội dung PHẢI bằng tiếng Việt."
         if language == "vi"
@@ -283,12 +303,23 @@ def _split_batch(
         f"{start_index + i}. {t}" for i, t in enumerate(slide_titles)
     )
 
+    design_block = ""
+    if tone or density or key_message_rule:
+        parts = []
+        if tone:
+            parts.append(f"    - Tone (giọng điệu): {tone}")
+        if density:
+            parts.append(f"    - Density (mật độ nội dung): {density}")
+        if key_message_rule:
+            parts.append(f"    - Key message rule: {key_message_rule}")
+        design_block = "\n<design_constraints>\n" + "\n".join(parts) + "\n</design_constraints>\n"
+
     prompt = f"""
 <task>
     Phân chia nội dung tài liệu thành ĐÚNG {n} đoạn,
     mỗi đoạn tương ứng với 1 tiêu đề slide.
 </task>
-
+{design_block}
 <slide_titles>
 {titles_str}
 </slide_titles>
@@ -298,8 +329,10 @@ def _split_batch(
 </content>
 
 <rules>
-    - Mỗi đoạn 2–4 câu, bám sát nội dung tài liệu
-    - Không bịa thêm thông tin
+    - Bám sát nội dung tài liệu, KHÔNG bịa thêm thông tin
+    - Tuân thủ density để quyết định độ dài và số lượng ý trong mỗi đoạn
+    - Viết theo tone đã chỉ định
+    - Mỗi đoạn chỉ truyền đạt thông điệp chính theo key_message_rule
     - Nếu tài liệu không có thông tin cho slide → chuỗi rỗng ""
     - {lang_instr}
     - Trả về JSON, KHÔNG markdown code fence

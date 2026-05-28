@@ -355,7 +355,7 @@ export function GeneratePage() {
               <button
                 type="button"
                 onClick={handleAnalyze}
-                disabled={isFormLocked || formData.purpose.length < 3 || formData.audience.length < 3}
+                disabled={isFormLocked || formData.purpose.trim().length < 3 || formData.audience.trim().length < 3}
                 className="gen-analyze-btn"
               >
                 {isAnalyzing ? (
