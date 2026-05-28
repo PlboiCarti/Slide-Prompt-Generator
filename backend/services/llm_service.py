@@ -533,6 +533,9 @@ _CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE | re.MULT
 
 def _safe_parse(raw: str) -> dict:
     """Parse JSON từ Gemini response. Raise ValueError nếu parse thất bại (để tenacity retry)."""
+    if not raw:
+        # resp.text là None hoặc "" khi Gemini lọc nội dung (SAFETY/RECITATION)
+        raise ValueError("Gemini trả về response rỗng hoặc None")
     cleaned = _CODE_FENCE_RE.sub("", raw).strip()
     try:
         return json.loads(cleaned)
