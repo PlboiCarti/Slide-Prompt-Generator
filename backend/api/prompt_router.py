@@ -116,7 +116,14 @@ async def generate(
         "density":          desc_density.strip(),
         "visual":           desc_visual.strip(),
     }
-    if all(desc_fields.values()):  # chỉ dùng nếu đủ cả 5 field
+    if any(desc_fields.values()):
+        # User có ý định gửi description → báo lỗi ngay nếu thiếu field
+        missing = [k for k, v in desc_fields.items() if not v]
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Description thiếu các field: {', '.join(missing)}",
+            )
         description_dict = desc_fields
 
     # Gộp content từ text + PDF
