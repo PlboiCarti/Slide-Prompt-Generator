@@ -528,6 +528,27 @@
   margin-top: 16px;
 }
 
+/* ── Submit error banner ─────────────────────────── */
+.gen-submit-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 24px 12px;
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #991b1b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.gen-submit-error svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #dc2626;
+}
+
 /* ── Submit ──────────────────────────────────────── */
 .gen-submit {
   margin: 24px;

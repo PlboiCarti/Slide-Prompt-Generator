@@ -76,6 +76,7 @@ export function GeneratePage() {
   const [jobStatus, setJobStatus] = useState<any>(null)
   const [jobId, setJobId] = useState<string | null>(null)
   const [isPolling, setIsPolling] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   // UI state
   const [copied, setCopied] = useState(false)
@@ -172,9 +173,10 @@ export function GeneratePage() {
   // ── PHASE 2: Sinh Master Prompt ───────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSubmitError('')
 
     if (!formData.content.trim() && !pdfFile) {
-      alert('Vui lòng cung cấp nội dung text hoặc tệp PDF')
+      setSubmitError('Vui lòng cung cấp ít nhất một trong hai: nội dung văn bản hoặc file PDF.')
       return
     }
 
@@ -192,7 +194,8 @@ export function GeneratePage() {
       setJobId(response.data.job_id)
       setIsPolling(true)
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Lỗi khi sinh prompt')
+      const detail = err.response?.data?.detail
+      setSubmitError(detail || 'Đã xảy ra lỗi. Vui lòng thử lại.')
     } finally {
       setIsGenerating(false)
     }
@@ -229,6 +232,7 @@ export function GeneratePage() {
     setCopied(false)
     setDescription(null)
     setDescError('')
+    setSubmitError('')
   }
 
   const status = jobStatus?.status
@@ -438,6 +442,17 @@ export function GeneratePage() {
                 </label>
               </div>
             </section>
+
+            {submitError && (
+              <div className="gen-submit-error">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M8 5v4M8 11v.5" stroke="currentColor" strokeWidth="1.5"
+                    strokeLinecap="round" />
+                </svg>
+                <span>{submitError}</span>
+              </div>
+            )}
 
             <button type="submit" disabled={isRunning} className="gen-submit">
               {isRunning ? 'Đang xử lý...' : '🚀 Sinh Master Prompt'}
