@@ -1,0 +1,11 @@
+# Môi trường ảo Python
+.venv/
+__pycache__/
+
+# Database SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Biến môi trường
+.env

@@ -62,13 +62,3 @@ def get_current_user(
     return user
 
 
-def get_current_verified_user(
-    user: User = Depends(get_current_user),
-) -> User:
-    """Strict hơn: chỉ cho phép user đã verify email."""
-    if not user.is_email_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Vui lòng xác thực email trước",
-        )
-    return user

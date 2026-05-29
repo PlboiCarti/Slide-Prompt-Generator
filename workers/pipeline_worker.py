@@ -1,7 +1,12 @@
 """
 workers/pipeline_worker.py
-Pipeline sinh Master Prompt — chạy trong background thread (daemon).
-KHÔNG dùng RQ/Redis — đồ án sinh viên đơn giản hóa.
+Pipeline Phase 2 — sinh Master Prompt trong background thread (daemon).
+KHÔNG dùng RQ/Redis — đơn giản hóa cho đồ án sinh viên.
+
+Pipeline:
+  B2: generate_slide_structure()  → list[SlideInstruction]
+  B3: fill_slide_contents()       → list[SlideInstruction] + content
+  B4: assemble_master_prompt()    → MasterPromptResult
 """
 from __future__ import annotations
 
@@ -14,10 +19,12 @@ from sqlalchemy.orm import Session
 
 from database.connection import SessionLocal
 from models.job import Job
+from schemas.prompt import DesignDescription
 from services.llm_service import (
     assemble_master_prompt,
-    generate_master_prompt_structure,
-    split_content_to_slides,
+    fill_slide_contents,
+    generate_design_description,
+    generate_slide_structure,
 )
 
 logger = logging.getLogger(__name__)
@@ -27,8 +34,7 @@ def run_pipeline_in_thread(job_id: str, payload: dict) -> Thread:
     """
     Chạy pipeline trong daemon thread.
     Trả về Thread object (caller có thể bỏ qua nếu không cần).
-
-    Daemon thread sẽ tự tắt khi process chính tắt.
+    Daemon thread tự tắt khi process chính tắt.
     """
     thread = Thread(
         target=_run_pipeline,
@@ -42,17 +48,18 @@ def run_pipeline_in_thread(job_id: str, payload: dict) -> Thread:
 
 def _run_pipeline(job_id: str, payload: dict) -> None:
     """
-    Thực thi pipeline: cập nhật job status trong DB.
+    Thực thi pipeline Phase 2: cập nhật job status trong DB.
     Mọi exception đều được catch để job được mark FAILED.
     """
-    purpose = payload.get("purpose", "")
-    audience = payload.get("audience", "")
-    style = payload.get("style", "")
-    primary_color = payload.get("primary_color", "")
-    slide_count = payload.get("slide_count", 6)
+    purpose        = payload.get("purpose", "")
+    audience       = payload.get("audience", "")
+    style          = payload.get("style", "")
+    primary_color  = payload.get("primary_color", "")
+    slide_count    = payload.get("slide_count", 6)
     primary_layout = payload.get("primary_layout", "")
-    language = payload.get("language", "vi")
-    content = payload.get("content", "")
+    language       = payload.get("language", "vi")
+    content        = payload.get("content", "")
+    description_dict = payload.get("description", {})  # từ Phase 1, user đã chỉnh
 
     # Mỗi thread mở session riêng — không share session từ request
     db: Session = SessionLocal()
@@ -61,44 +68,55 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
         _update_job(db, job_id, "PROCESSING")
         logger.info(f"[{job_id[:8]}] PROCESSING | purpose='{purpose[:40]}'")
 
-        # Bước 1: Build instruction từ payload
-        system_instruction = _build_instruction_from_payload(
+        # ── Chuẩn bị DesignDescription ────────────────────────────────
+        # Ưu tiên description từ Phase 1 (đã user chỉnh sửa).
+        # Nếu không có (gọi trực tiếp không qua Phase 1), tự sinh.
+        if description_dict:
+            design_description = DesignDescription(**description_dict)
+            logger.info(f"[{job_id[:8]}] Using description from Phase 1")
+        else:
+            logger.info(f"[{job_id[:8]}] No description provided — generating automatically")
+            design_description = generate_design_description(
+                purpose=purpose,
+                audience=audience,
+                style=style,
+                layout=primary_layout,
+                color=primary_color,
+                language=language,
+            )
+
+        # ── B2: Sinh cấu trúc slide ───────────────────────────────────
+        logger.info(f"[{job_id[:8]}] B2: generating slide structure...")
+        slides = generate_slide_structure(
             purpose=purpose,
             audience=audience,
             style=style,
-            color=primary_color,
-            slide_count=slide_count,
             layout=primary_layout,
-            language=language,
-        )
-        logger.info(f"[{job_id[:8]}] Step 1: instruction built")
-
-        # Bước 2: Sinh cấu trúc Master Prompt
-        logger.info(f"[{job_id[:8]}] Step 2: generating structure...")
-        refined_instruction, slide_instructions = generate_master_prompt_structure(
-            system_instruction=system_instruction,
-            language=language,
             slide_count=slide_count,
+            language=language,
         )
 
-        # Bước 3: Chia content vào từng slide
-        slide_titles = [s.get("title", "") for s in slide_instructions]
+        # ── B3: Ghép content vào từng slide ──────────────────────────
         if content.strip():
-            logger.info(f"[{job_id[:8]}] Step 3: splitting content...")
-            slide_contents = split_content_to_slides(
+            logger.info(f"[{job_id[:8]}] B3: filling slide contents...")
+            slides = fill_slide_contents(
+                slides=slides,
                 content=content,
-                slide_titles=slide_titles,
                 language=language,
+                design_description=design_description,
             )
         else:
-            slide_contents = [""] * len(slide_instructions)
-            logger.info(f"[{job_id[:8]}] Step 3: no content provided")
+            logger.info(f"[{job_id[:8]}] B3: no content provided — skipped")
 
-        # Bước 4: Assemble
+        # ── B4: Assemble Master Prompt ────────────────────────────────
         result = assemble_master_prompt(
-            system_instruction=refined_instruction,
-            slide_instructions=slide_instructions,
-            slide_contents=slide_contents,
+            purpose=purpose,
+            audience=audience,
+            style=style,
+            primary_color=primary_color,
+            primary_layout=primary_layout,
+            design_description=design_description,
+            slides=slides,
             language=language,
         )
 
@@ -112,39 +130,6 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
         db.close()
 
 
-def _build_instruction_from_payload(
-    purpose: str,
-    audience: str,
-    style: str,
-    color: str,
-    slide_count: int,
-    layout: str,
-    language: str,
-) -> str:
-    """Build instruction string từ form input."""
-    if language == "vi":
-        lines = [
-            f"Mục đích: {purpose}",
-            f"Đối tượng người xem: {audience}",
-            f"Phong cách thiết kế: {style}",
-            f"Màu sắc chủ đạo: {color}",
-            f"Số lượng slide: {slide_count}",
-            f"Bố cục chính: {layout}",
-            f"Ngôn ngữ: {language}",
-        ]
-    else:
-        lines = [
-            f"Purpose: {purpose}",
-            f"Target audience: {audience}",
-            f"Design style: {style}",
-            f"Primary color: {color}",
-            f"Number of slides: {slide_count}",
-            f"Primary layout: {layout}",
-            f"Language: {language}",
-        ]
-    return "\n".join(lines)
-
-
 def _update_job(
     db: Session,
     job_id: str,
@@ -154,6 +139,7 @@ def _update_job(
 ) -> None:
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
+        logger.warning(f"[{job_id[:8]}] _update_job: job not found in DB — status '{status}' dropped")
         return
     job.status = status
     job.updated_at = datetime.utcnow()

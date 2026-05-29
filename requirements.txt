@@ -10,7 +10,6 @@ pydantic-settings
 # Database
 sqlalchemy
 psycopg2-binary
-alembic
 
 # LLM
 google-generativeai
@@ -21,7 +20,6 @@ tenacity
 # PDF
 pypdf
 
-# Auth
 # Auth
 pwdlib[argon2]
 pyjwt

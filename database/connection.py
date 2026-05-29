@@ -2,7 +2,7 @@
 database/connection.py — SQLAlchemy engine + session
 Tự detect SQLite vs Postgres để cấu hình phù hợp.
 """
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from utils.config import get_settings
@@ -46,22 +46,3 @@ def create_tables() -> None:
     # Import models để Base biết các bảng cần tạo
     from models import job, user, auth_provider  # noqa: F401
     Base.metadata.create_all(bind=engine)
-    _ensure_lightweight_columns()
-
-
-def _ensure_lightweight_columns() -> None:
-    """Add columns that create_all cannot add to an existing local database."""
-    inspector = inspect(engine)
-    table_names = inspector.get_table_names()
-    if "jobs" not in table_names:
-        return
-
-    with engine.begin() as connection:
-        job_columns = {column["name"] for column in inspector.get_columns("jobs")}
-        if "user_id" not in job_columns:
-            connection.execute(text("ALTER TABLE jobs ADD COLUMN user_id VARCHAR"))
-
-        job_columns = {column["name"] for column in inspector.get_columns("jobs")}
-        if "deleted_at" not in job_columns:
-            column_type = "DATETIME" if database_url.startswith("sqlite") else "TIMESTAMP NULL"
-            connection.execute(text(f"ALTER TABLE jobs ADD COLUMN deleted_at {column_type}"))

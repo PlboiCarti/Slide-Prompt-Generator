@@ -13,7 +13,6 @@ class JobStatus(str, Enum):
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
-    DRAFT = "DRAFT"
 
 
 class GenerateResponse(BaseModel):
@@ -32,20 +31,3 @@ class JobStatusResponse(BaseModel):
     error_message: str | None = None
     created_at: datetime
     updated_at: datetime
-class DescriptionGenerateRequest(BaseModel):
-    purpose: str 
-    audience: str 
-    style: str = "minimalist"
-    primary_layout: str = "key_message"
-    slide_count: int = 6
-    language: str = "vi"
-class SaveDraftRequest(BaseModel):
-    purpose: str
-    audience: str
-    style: str
-    primary_color: str
-    slide_count: int
-    primary_layout: str
-    content: str
-    language: str
-    description: dict | None = None

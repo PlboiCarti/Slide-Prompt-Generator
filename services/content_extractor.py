@@ -48,9 +48,18 @@ async def extract_content(
             logger.warning(f"PDF '{pdf_file.filename}' không trích xuất được text")
 
     if not parts:
+        if pdf_file:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "Không trích xuất được text từ file PDF. "
+                    "File có thể là ảnh scan hoặc PDF được bảo mật. "
+                    "Vui lòng dùng PDF dạng text, hoặc sao chép nội dung vào ô văn bản."
+                ),
+            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Không có nội dung — cần text hoặc PDF",
+            detail="Không có nội dung — vui lòng cung cấp text hoặc file PDF.",
         )
 
     combined = "\n\n---\n\n".join(parts)
@@ -78,6 +87,19 @@ async def _extract_pdf(pdf_file: UploadFile) -> str:
     import pypdf  # local import — chỉ load khi cần
 
     raw_bytes = await pdf_file.read()
+
+    # Kiểm tra size thực sau khi đọc (pdf_file.size có thể là None nếu client không gửi Content-Length)
+    if len(raw_bytes) > MAX_PDF_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File PDF quá lớn ({len(raw_bytes):,} bytes, tối đa {MAX_PDF_SIZE:,} bytes / 10 MB).",
+        )
+
+    if not raw_bytes.startswith(b"%PDF"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File không phải PDF hợp lệ (thiếu magic bytes %PDF).",
+        )
     reader = pypdf.PdfReader(io.BytesIO(raw_bytes))
 
     pages: list[str] = []

@@ -2,6 +2,7 @@
 utils/config.py — Cấu hình ứng dụng, đọc từ .env
 """
 from functools import lru_cache
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,7 +24,8 @@ class Settings(BaseSettings):
     # ── Gemini LLM ─────────────────────────────────────────────────────
     gemini_api_key: str = ""
     llm_model: str = "gemini-2.5-flash"
-    max_slides_limit: int = 50
+    min_slides_limit: int = 3
+    max_slides_limit: int = 30
 
     # ── JWT ────────────────────────────────────────────────────────────
     # Default value đủ 32 ký tự để dev không crash. Production PHẢI override.
@@ -40,9 +42,15 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
 
+    # ── Backend base URL (dùng cho link trong email) ───────────────────
+    BASE_URL: str = "http://localhost:8000"
+
     # ── Rate limiting (in-memory) ──────────────────────────────────────
     MAX_LOGIN_ATTEMPTS: int = 5
     LOCKOUT_MINUTES: int = 15
+
+    MAX_GENERATE_ATTEMPTS: int = 5
+    GENERATE_LOCKOUT_MINUTES: int = 10
 
     # ── Email verification ─────────────────────────────────────────────
     EMAIL_VERIFY_TTL_HOURS: int = 24
@@ -56,6 +64,17 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM_EMAIL: str = ""        # email người gửi hiển thị
     SMTP_FROM_NAME: str = "Prompt Builder"
+
+    @model_validator(mode="after")
+    def check_production_secrets(self) -> "Settings":
+        if self.is_production and "dev_only" in self.JWT_SECRET_KEY:
+            raise ValueError(
+                "JWT_SECRET_KEY chưa được đổi cho production! "
+                "Chạy lệnh sau để tạo key mạnh:\n"
+                "  python -c \"import secrets; print(secrets.token_hex(32))\"\n"
+                "Sau đó set JWT_SECRET_KEY=<key> trong file .env"
+            )
+        return self
 
     @property
     def smtp_enabled(self) -> bool:

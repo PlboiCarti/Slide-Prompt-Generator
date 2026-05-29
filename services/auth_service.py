@@ -2,6 +2,7 @@
 services/auth_service.py — Business logic cho authentication.
 Không dùng Redis: email verify token lưu vào DB (cột trong bảng users).
 """
+import logging
 from datetime import datetime, timedelta
 
 from fastapi import HTTPException, status
@@ -20,6 +21,7 @@ from services.email_service import send_verification_email
 from utils.config import get_settings
 from utils.rate_limiter import login_tracker
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -37,7 +39,7 @@ class AuthService:
         # Bước 1: Email đã tồn tại?
         existing = self.db.query(User).filter(User.email == data.email).first()
         if existing:
-            # Cùng message dù email tồn tại hay không (chống user enumeration)
+            logger.warning(f"Register attempt with existing email: {data.email}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email đã được đăng ký",
@@ -68,12 +70,14 @@ class AuthService:
         self.db.commit()
         self.db.refresh(user)
 
+        logger.info(f"User registered: {user.email} (id={str(user.id)[:8]})")
+
         # Bước 4: Gửi email verify
-        verify_url = f"http://localhost:8000/api/auth/verify-email?token={verify_token}"
+        verify_url = f"{settings.BASE_URL}/api/auth/verify-email?token={verify_token}"
         sent = send_verification_email(user.email, verify_url)
         if not sent:
-            # SMTP chưa config hoặc fail → in ra console để dev tự copy link
-            print(f"[DEV] Verify link cho {user.email}: {verify_url}")
+            # SMTP chưa config hoặc fail → log ra thay vì print
+            logger.info(f"[DEV] Verify link cho {user.email}: {verify_url}")
 
         return user
 
@@ -86,6 +90,7 @@ class AuthService:
         )
 
         if not user:
+            logger.warning(f"Email verification failed: invalid token (token={token[:12]}...)")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Token không hợp lệ",
@@ -96,6 +101,7 @@ class AuthService:
             user.email_verification_expires_at is None
             or user.email_verification_expires_at < datetime.utcnow()
         ):
+            logger.warning(f"Email verification failed: token expired for {user.email}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Token đã hết hạn. Vui lòng đăng ký lại hoặc yêu cầu gửi lại.",
@@ -107,6 +113,7 @@ class AuthService:
         user.email_verification_expires_at = None
         self.db.commit()
 
+        logger.info(f"Email verified: {user.email} (id={str(user.id)[:8]})")
         return user
 
     # ── ĐĂNG NHẬP EMAIL/PASSWORD ──────────────────────────────────────
@@ -116,6 +123,7 @@ class AuthService:
         """
         # Bước 1: Rate limit
         if login_tracker.is_locked(email):
+            logger.warning(f"Login blocked (rate limit): {email}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=(
@@ -146,6 +154,11 @@ class AuthService:
             or not verify_password(password, auth_provider.password_hash)
         ):
             login_tracker.record_failed_attempt(email)
+            attempts = login_tracker.get_attempts(email)
+            logger.warning(
+                f"Login failed (wrong credentials): {email} "
+                f"(attempt {attempts}/{settings.MAX_LOGIN_ATTEMPTS})"
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Email hoặc mật khẩu không đúng",
@@ -153,6 +166,7 @@ class AuthService:
 
         # Bước 4: Email đã verify chưa?
         if not user.is_email_verified:
+            logger.warning(f"Login denied (unverified email): {email}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Vui lòng xác thực email trước khi đăng nhập",
@@ -161,6 +175,7 @@ class AuthService:
         # Bước 5: Reset counter + issue token
         login_tracker.reset(email)
         access_token = create_access_token(user.id)
+        logger.info(f"Login success: {email} (id={str(user.id)[:8]})")
         return user, access_token
 
     # ── GOOGLE OAUTH ──────────────────────────────────────────────────
@@ -192,6 +207,7 @@ class AuthService:
             # Đã từng login Google rồi → login thẳng
             user = google_provider.user
             access_token = create_access_token(user.id)
+            logger.info(f"Google login (existing): {email} (id={str(user.id)[:8]})")
             return user, access_token, "existing_google"
 
         # Bước 2: Email đã được đăng ký bằng cách khác chưa?
@@ -200,6 +216,10 @@ class AuthService:
         if existing_user:
             # Email tồn tại nhưng chưa có Google provider.
             # KHÔNG auto-link để phòng account takeover.
+            logger.warning(
+                f"Google login blocked: {email} already registered via LOCAL "
+                f"(google_id={google_id[:12]}...)"
+            )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=(
@@ -228,4 +248,5 @@ class AuthService:
         self.db.refresh(new_user)
 
         access_token = create_access_token(new_user.id)
+        logger.info(f"Google login (new user registered): {email} (id={str(new_user.id)[:8]})")
         return new_user, access_token, "new_user"

@@ -6,14 +6,14 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, DateTime, Enum as SQLEnum,ForeignKey
+from sqlalchemy import Column, String, DateTime, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 
 from database.connection import Base
 
 
 class ProviderType(str, enum.Enum):
-    """Các phương thứ   c đăng nhập được hỗ trợ."""
+    """Các phương thức đăng nhập được hỗ trợ."""
     LOCAL = "local"      # email + password
     GOOGLE = "google"    # Google OAuth
 

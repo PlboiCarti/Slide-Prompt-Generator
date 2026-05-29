@@ -1,16 +1,24 @@
 """
 services/llm_service.py — Sinh Master Prompt dùng Gemini
+
+Pipeline 2 giai đoạn:
+  Phase 1 (sync)  : generate_design_description()  → DesignDescription
+  Phase 2 (async) : generate_slide_structure()      → list[SlideInstruction]
+                    fill_slide_contents()            → list[SlideInstruction] + content
+                    assemble_master_prompt()         → MasterPromptResult
 """
 from __future__ import annotations
 
 import json
 import logging
 import re
+import time
+from contextlib import contextmanager
 
 import google.generativeai as genai
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from schemas.prompt import MasterPromptResult, SlideInstruction
+from schemas.prompt import DesignDescription, MasterPromptResult, SlideInstruction
 from utils.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -31,16 +39,120 @@ def _json_config(temp: float = 0.7, tokens: int = 4000):
     )
 
 
-# ── Bước 4a: Sinh system_instruction + slide_instructions ────────────
+@contextmanager
+def _timed(label: str):
+    """Context manager log thời gian thực thi của một Gemini call."""
+    t0 = time.perf_counter()
+    try:
+        yield
+    finally:
+        elapsed = time.perf_counter() - t0
+        logger.info(f"{label} | took {elapsed:.2f}s")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# PHASE 1 — generate_design_description
+# Synchronous, gọi trực tiếp từ HTTP handler (~3–5s)
+# ══════════════════════════════════════════════════════════════════════
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
-def generate_master_prompt_structure(
-    system_instruction: str,
+def generate_design_description(
+    purpose: str,
+    audience: str,
+    style: str,
+    layout: str,
+    color: str,
     language: str,
+) -> DesignDescription:
+    """
+    Phase 1 — Sinh mô tả thiết kế từ form input.
+    Trả về DesignDescription (5 field) để frontend hiển thị cho user chỉnh sửa.
+    """
+    lang_instr = (
+        "Toàn bộ nội dung PHẢI bằng tiếng Việt."
+        if language == "vi"
+        else "All content MUST be in English."
+    )
+
+    language_type = "Tiếng Việt" if language == "vi" else "English"
+
+    prompt = f"""
+<task>
+    Bạn là chuyên gia thiết kế slide thuyết trình chuyên nghiệp.
+    Phân tích các thông số sau và sinh mô tả thiết kế chi tiết, cụ thể.
+</task>
+
+<input>
+    Mục đích: {purpose}
+    Đối tượng người xem: {audience}
+    Phong cách thiết kế: {style}
+    Bố cục chính: {layout}
+    Màu sắc chủ đạo: {color}
+    Ngôn ngữ: {language}
+</input>
+
+<rules>
+    - {lang_instr}
+    - tone: Giọng điệu và cảm xúc phù hợp với mục đích + đối tượng (1–2 câu ngắn gọn)
+    - font: Đúng 1 tên font chữ duy nhất — KHÔNG dùng "hoặc", không giải thích, chỉ chọn Font chữ có hỗ trợ {language_type}
+    - key_message_rule: Cách trình bày ý chính trên slide (ngắn, súc tích, in đậm, v.v.)
+    - density: Mật độ nội dung — số bullet tối đa, tỉ lệ chữ/hình, v.v.
+    - visual: Hướng dẫn visual hierarchy, cách phối màu, không gian bố cục
+    - Trả về JSON hợp lệ, KHÔNG markdown code fence
+    - QUAN TRỌNG:
+        + Trả về JSON hợp lệ tuyệt đối
+        + Mỗi value phải là string 1 dòng duy nhất
+        + KHÔNG xuống dòng trong bất kỳ value nào
+        + Mỗi value tối đa 60 từ, đủ cụ thể và sinh động
+</rules>
+
+JSON Schema:
+{{
+  "tone":             "...",
+  "font":             "...",
+  "key_message_rule": "...",
+  "density":          "...",
+  "visual":           "..."
+}}"""
+
+    with _timed("Phase1 generate_design_description"):
+        resp = _model().generate_content(
+            prompt,
+            generation_config=_json_config(temp=0.7, tokens=2000),
+        )
+
+    parsed = _safe_parse(resp.text)
+    logger.info("Design description generated")
+
+    return DesignDescription(
+        tone=parsed.get("tone", ""),
+        font=parsed.get("font", ""),
+        key_message_rule=parsed.get("key_message_rule", ""),
+        density=parsed.get("density", ""),
+        visual=parsed.get("visual", ""),
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# PHASE 2 — B2: generate_slide_structure
+# ══════════════════════════════════════════════════════════════════════
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
+def generate_slide_structure(
+    purpose: str,
+    audience: str,
+    style: str,
+    layout: str,
     slide_count: int,
-) -> tuple[str, list[dict]]:
+    language: str,
+) -> list[SlideInstruction]:
     """
-    Sinh cấu trúc Master Prompt: (system_instruction_refined, slide_instructions)
+    Phase 2, bước B2 — Sinh cấu trúc N slide (title + instruction).
+    Trả về list[SlideInstruction] đã validate — không để list[dict] thô chạy qua pipeline.
     """
+    if slide_count < 3:
+        raise ValueError(f"slide_count phải >= 3 (hiện tại: {slide_count})")
+
     lang_instr = (
         "Toàn bộ nội dung PHẢI bằng tiếng Việt."
         if language == "vi"
@@ -49,96 +161,167 @@ def generate_master_prompt_structure(
 
     prompt = f"""
 <task>
-    Bạn là hệ thống sinh Master Prompt chuyên nghiệp.
-    Tạo Master Prompt để người dùng copy vào AI khác (ChatGPT, Claude, Gemini...).
-    Khi AI nhận prompt này, nó phải tạo ra SLIDE POWERPOINT HOÀN CHỈNH.
+    Sinh cấu trúc bộ slide thuyết trình gồm đúng {slide_count} slide.
 </task>
 
-<output_rules>
+<input>
+    Mục đích: {purpose}
+    Đối tượng người xem: {audience}
+    Phong cách thiết kế: {style}
+    Bố cục chính: {layout}
+</input>
+
+<rules>
     - {lang_instr}
-    - system_instruction phải:
-        + Thể hiện đầy đủ yêu cầu của input sau:
-          {system_instruction}
-        + Không bỏ sót yêu cầu nào
-        + Định nghĩa rõ vai trò của AI (chuyên gia tạo slide)
-        + Yêu cầu AI tạo BỘ SLIDE POWERPOINT HOÀN CHỈNH
-        + Quy định format output: Tiêu đề + bullet points + ghi chú diễn giả
-        + Không dùng từ "gợi ý", "key points", "outline"
-    - slide_instructions: ĐÚNG {slide_count} phần tử
-    - Slide đầu: giới thiệu. Slide cuối: kết luận/CTA
-    - instruction mỗi slide: chỉ thị cụ thể 1-2 câu
+    - Slide đầu tiên: giới thiệu / mở đầu
+    - Slide cuối cùng: kết luận / call-to-action
+    - instruction mỗi slide: chỉ thị cụ thể 1–2 câu, đủ để AI hiểu cần tạo gì
+    - Phải có đúng {slide_count} phần tử trong mảng slide_instructions
     - Trả về JSON hợp lệ, KHÔNG markdown code fence
-</output_rules>
+</rules>
 
 JSON Schema:
 {{
-    "master_prompt_title": "...",
-    "system_instruction": "...",
-    "slide_instructions": [
-        {{"index": 1, "title": "...", "instruction": "..."}}
-    ]
+  "slide_instructions": [
+    {{"index": 1, "title": "...", "instruction": "..."}}
+  ]
 }}"""
 
-    resp = _model().generate_content(
-        prompt,
-        generation_config=_json_config(temp=0.3, tokens=4000),
-    )
-
-    parsed = _safe_parse(resp.text)
-
-    refined_instruction = parsed.get("system_instruction", "")
-    slide_instructions = parsed.get("slide_instructions", [])
-
-    if len(slide_instructions) < 3:
-        raise ValueError(
-            f"Gemini trả về {len(slide_instructions)} slides, cần ít nhất 3"
+    with _timed(f"B2 generate_slide_structure ({slide_count} slides)"):
+        resp = _model().generate_content(
+            prompt,
+            generation_config=_json_config(temp=0.5, tokens=3000),
         )
 
-    logger.info(f"Master prompt structure: {len(slide_instructions)} slides")
-    return refined_instruction, slide_instructions
+    parsed = _safe_parse(resp.text)
+    raw_slides = parsed.get("slide_instructions", [])
+
+    # Validate ngay tại đây — không để dict thô chạy xuyên pipeline
+    slides: list[SlideInstruction] = []
+    for i, item in enumerate(raw_slides):
+        slides.append(
+            SlideInstruction(
+                index=item.get("index", i + 1),
+                title=item.get("title", f"Slide {i + 1}"),
+                instruction=item.get("instruction", ""),
+                content="",
+            )
+        )
+
+    slides.sort(key=lambda s: s.index)
+    logger.info(f"B2 slide structure: {len(slides)}/{slide_count} slides returned")
+    return slides
 
 
-# ── Bước 4b: Chia content vào từng slide ──────────────────────────────
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=30))
-def split_content_to_slides(
+# ══════════════════════════════════════════════════════════════════════
+# PHASE 2 — B3: fill_slide_contents
+# ══════════════════════════════════════════════════════════════════════
+
+def fill_slide_contents(
+    slides: list[SlideInstruction],
     content: str,
-    slide_titles: list[str],
     language: str,
-) -> list[str]:
+    design_description: DesignDescription | None = None,
+) -> list[SlideInstruction]:
     """
-    Chia content thành N đoạn tương ứng N slide.
+    Phase 2, bước B3 — Ghép content từ tài liệu vào từng slide.
+    - Có content → bám sát tài liệu, chia đều vào từng slide
+    - Không có  → trả lại slides không thay đổi (content = "")
     """
+    if not content.strip():
+        return slides
+
+    # Tóm tắt nếu quá dài
     if len(content) > 12_000:
         content = _recursive_summarize(content, language)
 
+    slide_titles = [s.title for s in slides]
     n = len(slide_titles)
-    if n > 10:
-        mid = n // 2
-        first = _split_batch(content, slide_titles[:mid], language, start_index=1)
-        second = _split_batch(content, slide_titles[mid:], language, start_index=mid + 1)
-        return first + second
 
-    return _split_batch(content, slide_titles, language, start_index=1)
+    tone            = design_description.tone            if design_description else ""
+    density         = design_description.density         if design_description else ""
+    key_message_rule = design_description.key_message_rule if design_description else ""
+
+    # Chia batch nếu > 10 slides để tránh prompt quá dài
+    try:
+        if n > 10:
+            mid = n // 2
+            first_contents = _split_batch(
+                content, slide_titles[:mid], language,
+                tone=tone, density=density, key_message_rule=key_message_rule,
+                start_index=1,
+            )
+            second_contents = _split_batch(
+                content, slide_titles[mid:], language,
+                tone=tone, density=density, key_message_rule=key_message_rule,
+                start_index=mid + 1,
+            )
+            all_contents = first_contents + second_contents
+        else:
+            all_contents = _split_batch(
+                content, slide_titles, language,
+                tone=tone, density=density, key_message_rule=key_message_rule,
+                start_index=1,
+            )
+    except Exception:
+        # Sau 3 lần retry vẫn lỗi → fallback về content rỗng, không crash job
+        logger.warning("B3 _split_batch thất bại sau retry — tiếp tục với content rỗng")
+        all_contents = [""] * n
+
+    # Trả về list[SlideInstruction] mới với content đã điền
+    result: list[SlideInstruction] = []
+    for i, slide in enumerate(slides):
+        filled_content = all_contents[i] if i < len(all_contents) else ""
+        result.append(
+            SlideInstruction(
+                index=slide.index,
+                title=slide.title,
+                instruction=slide.instruction,
+                content=filled_content,
+            )
+        )
+    return result
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
 def _split_batch(
     content: str,
     slide_titles: list[str],
     language: str,
+    tone: str = "",
+    density: str = "",
+    key_message_rule: str = "",
     start_index: int = 1,
 ) -> list[str]:
     n = len(slide_titles)
-    lang_instr = "Trả lời bằng tiếng Việt." if language == "vi" else "Reply in English."
+
+    lang_instr = (
+        "Toàn bộ nội dung PHẢI bằng tiếng Việt."
+        if language == "vi"
+        else "All content MUST be in English."
+    )
+
     titles_str = "\n".join(
         f"{start_index + i}. {t}" for i, t in enumerate(slide_titles)
     )
+
+    design_block = ""
+    if tone or density or key_message_rule:
+        parts = []
+        if tone:
+            parts.append(f"    - Tone (giọng điệu): {tone}")
+        if density:
+            parts.append(f"    - Density (mật độ nội dung): {density}")
+        if key_message_rule:
+            parts.append(f"    - Key message rule: {key_message_rule}")
+        design_block = "\n<design_constraints>\n" + "\n".join(parts) + "\n</design_constraints>\n"
 
     prompt = f"""
 <task>
     Phân chia nội dung tài liệu thành ĐÚNG {n} đoạn,
     mỗi đoạn tương ứng với 1 tiêu đề slide.
 </task>
-
+{design_block}
 <slide_titles>
 {titles_str}
 </slide_titles>
@@ -148,8 +331,10 @@ def _split_batch(
 </content>
 
 <rules>
-    - Mỗi đoạn 2-4 câu, bám sát nội dung tài liệu
-    - Không bịa thêm thông tin
+    - Bám sát nội dung tài liệu, KHÔNG bịa thêm thông tin
+    - Tuân thủ density để quyết định độ dài và số lượng ý trong mỗi đoạn
+    - Viết theo tone đã chỉ định
+    - Mỗi đoạn chỉ truyền đạt thông điệp chính theo key_message_rule
     - Nếu tài liệu không có thông tin cho slide → chuỗi rỗng ""
     - {lang_instr}
     - Trả về JSON, KHÔNG markdown code fence
@@ -158,10 +343,11 @@ def _split_batch(
 
 JSON: {{"contents": ["nội dung slide 1", "nội dung slide 2", ...]}}"""
 
-    resp = _model().generate_content(
-        prompt,
-        generation_config=_json_config(temp=0.2, tokens=6000),
-    )
+    with _timed(f"B3 _split_batch ({n} slides, start={start_index})"):
+        resp = _model().generate_content(
+            prompt,
+            generation_config=_json_config(temp=0.2, tokens=6000),
+        )
 
     parsed = _safe_parse(resp.text)
     contents = parsed.get("contents", [])
@@ -184,14 +370,16 @@ def _recursive_summarize(content: str, language: str, max_len: int = 12_000) -> 
             f"Tóm tắt đoạn văn sau, giữ TẤT CẢ thông tin quan trọng "
             f"(số liệu, tên, sự kiện, luận điểm). Không bịa thêm. {lang_instr}\n\n{chunk}"
         )
-        resp = _model().generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
-                temperature=0.1, max_output_tokens=1000,
-            ),
-        )
-        summaries.append(resp.text.strip())
-        logger.info(f"Summarized chunk {i + 1}/{len(chunks)}")
+        with _timed(f"  summarize chunk {i + 1}/{len(chunks)}"):
+            resp = _model().generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.1, max_output_tokens=1000,
+                ),
+            )
+        text = resp.text or ""
+        summaries.append(text.strip())
+        logger.info(f"  chunk {i + 1}/{len(chunks)} summarized: {len(chunk)} → {len(text.strip())} ký tự")
 
     combined = "\n\n".join(summaries)
     if len(combined) > max_len:
@@ -199,108 +387,162 @@ def _recursive_summarize(content: str, language: str, max_len: int = 12_000) -> 
     return combined
 
 
-# ── Bước 5: Assemble final MasterPromptResult ─────────────────────────
+# ══════════════════════════════════════════════════════════════════════
+# PHASE 2 — B4: assemble_master_prompt
+# ══════════════════════════════════════════════════════════════════════
+
 def assemble_master_prompt(
-    system_instruction: str,
-    slide_instructions: list[dict],
-    slide_contents: list[str],
+    purpose: str,
+    audience: str,
+    style: str,
+    primary_color: str,
+    primary_layout: str,
+    design_description: DesignDescription,
+    slides: list[SlideInstruction],
     language: str,
 ) -> MasterPromptResult:
-    slides: list[SlideInstruction] = []
-    for i, sp in enumerate(slide_instructions):
-        content = slide_contents[i] if i < len(slide_contents) else ""
-        slides.append(
-            SlideInstruction(
-                index=sp.get("index", i + 1),
-                title=sp.get("title", f"Slide {i + 1}"),
-                instruction=sp.get("instruction", ""),
-                content=content or "",
-            )
-        )
-
-    slides.sort(key=lambda s: s.index)
-    full = _build_full_master_prompt(system_instruction, slides, language)
+    """
+    Phase 2, bước B4 — Ghép thành MasterPromptResult hoàn chỉnh.
+    Input nhận DesignDescription đã được user chỉnh sửa (Phase 1).
+    """
+    slides_sorted = sorted(slides, key=lambda s: s.index)
+    full = _build_full_master_prompt(
+        purpose=purpose,
+        audience=audience,
+        style=style,
+        primary_color=primary_color,
+        primary_layout=primary_layout,
+        design_description=design_description,
+        slides=slides_sorted,
+        language=language,
+    )
 
     return MasterPromptResult(
         master_prompt_title="Master Prompt - Presentation",
-        system_instruction=system_instruction,
-        slide_instructions=slides,
-        total_slides=len(slides),
+        design_description=design_description,
+        slide_instructions=slides_sorted,
+        total_slides=len(slides_sorted),
         full_master_prompt=full,
     )
 
 
 def _build_full_master_prompt(
-    system_instruction: str,
+    purpose: str,
+    audience: str,
+    style: str,
+    primary_color: str,
+    primary_layout: str,
+    design_description: DesignDescription,
     slides: list[SlideInstruction],
-    language: str = "vi",
+    language: str,
 ) -> str:
     """Ghép thành chuỗi hoàn chỉnh để user copy vào AI khác."""
-    if language == "vi":
-        action = (
-            f"Dựa trên nội dung dưới đây, hãy thiết kế một **BỘ SLIDE THUYẾT TRÌNH "
-            f"CHUYÊN NGHIỆP** gồm {len(slides)} slide. "
-            f"Mục tiêu là **trực quan hóa thông tin**, đảm bảo mỗi slide sẵn sàng "
-            f"để trình diễn với câu chữ ngắn gọn, cô đọng và có tính tác động cao."
-        )
-        format_rules = (
-            f"File PowerPoint (.pptx) hoặc Google Slides link chứa {len(slides)} slide đầy đủ\n"
-            f"Mỗi slide tuân thủ 100% yêu cầu nội dung + thiết kế dưới đây\n"
-            f"Không là Markdown, không là text — là slide thực tế có thể trình bày\n"
-            f"Số lượng bullet: tối thiểu 3, tối đa 5 bullet/slide\n\n"
+    n = len(slides)
 
-            f"Với MỖI slide, hãy trả về theo cấu trúc:\n"
-            f"\n## Slide [Số thứ tự] — [Tiêu đề Slide]\n"
-            f"**Mục tiêu Slide:** [bám theo TITLE]\n"
-            f"**Chữ trên slide (On-Slide Text):**\n"
-            f"• [Ý chính 1 — tối đa 15 từ]\n"
-            f"• [Ý chính 2 — tối đa 15 từ]\n"
-            f"• [Ý chính 3 — tối đa 15 từ]\n"
-            f"**Yếu tố hình ảnh:** [Gợi ý icon, biểu đồ, hình ảnh]\n"
-            f"**Ghi chú diễn giả:** [1-2 câu kịch bản]"
+    if language == "vi":
+        role_text = (
+            "Bạn là chuyên gia thiết kế slide PowerPoint với 10+ năm kinh nghiệm trong thiết kế trình bày trực quan và kể chuyện bằng dữ liệu. "
         )
-        note = (
+        task_text = (
+            f"Hãy tạo BỘ SLIDE THUYẾT TRÌNH hoàn chỉnh cho toàn bộ nội dung sau đây gồm {n} slide "
+            f"Đọc kĩ INSTRUCTION VÀ CONTENT của từng slide "
+            f"Sau đó trình bày, bố trí nội dung và hình ảnh(nếu có) trong từng slide đẹp mắt, logic giữa các slide với nhau "
+            f"Đảm bảo phong cách thiết kế đồng nhất xuyên suốt cả bộ. Mỗi slide cần có tiêu đề. "
+        )
+        guideline_text = (
+            f"Mục tiêu của bộ slide là {purpose}, hướng đến đối tượng {audience} "
+            f"với phong cách thiết kế {style}. "
+            f"Màu sắc chủ đạo là {primary_color} và layout chính theo dạng {primary_layout}."
+        )
+        desc_text = (
+            f"Tone: {design_description.tone}\n"
+            f"Font: {design_description.font}\n"
+            f"Key Message Rule: {design_description.key_message_rule}\n"
+            f"Density: {design_description.density}\n"
+            f"Visual: {design_description.visual}"
+        )
+        format_text = (
+            f"Output phải là file thuyết trình thực tế (.pptx) mở được trong PowerPoint/Google Slides\n"
+            f"KHÔNG phải code, KHÔNG phải mô tả bằng văn bản.\n"
+        )
+        note_text = (
             "NỘI DUNG trên slide phải dựa trên thông tin thực tế từ tài liệu gốc. "
             "Tuyệt đối không bịa đặt số liệu hay thông tin mới."
         )
+        headers = {
+            "role":    "[VAI TRÒ]",
+            "task":    "[NHIỆM VỤ]",
+            "guide":   "[CHỈ DẪN]",
+            "desc":    "[MÔ TẢ THIẾT KẾ]",
+            "format":  "[YÊU CẦU FORMAT OUTPUT]",
+            "note":    "[LƯU Ý]",
+            "content": "[NỘI DUNG TỪNG SLIDE]",
+            "no_doc":  "(Không có tài liệu — hãy tạo nội dung phù hợp dựa trên tiêu đề và instruction)",
+            "closing": "Bây giờ hãy bắt đầu tạo Slide PowerPoint cho tất cả slide theo format trên.",
+        }
     else:
-        action = (
-            f"Based on the content below, design a PROFESSIONAL PRESENTATION DECK "
-            f"of {len(slides)} slides."
+        role_text = (
+            "You are a PowerPoint slide design expert with 10+ years of experience in visual presentation design and data storytelling. "
         )
-        format_rules = (
-            f"PowerPoint file (.pptx) or Google Slides link with {len(slides)} slides.\n"
-            f"Each slide must comply 100% with the content + design rules.\n"
-            f"Minimum 3, maximum 5 bullets per slide.\n\n"
-
-            f"For EACH slide:\n"
-            f"\n## Slide [number] — [Title]\n"
-            f"**Main Content:**\n"
-            f"• [Bullet 1 — max 15 words]\n"
-            f"• [Bullet 2 — max 15 words]\n"
-            f"• [Bullet 3 — max 15 words]\n"
-            f"\n**Speaker Notes:** [1-2 sentences]"
+        task_text = (
+            f"Please create a complete PRESENTATION DECK for the following content consisting of {n} slides. "
+            f"Read the INSTRUCTION AND CONTENT of each slide carefully. "
+            f"Then present, arrange the content and images (if any) in each slide beautifully and logically with each other. "
+            f"Ensure a consistent design style throughout the deck. Each slide must have a title. "
         )
-        note = (
+        guideline_text = (
+            f"The goal of this presentation is {purpose}, targeting {audience} "
+            f"with a {style} design style. "
+            f"The primary color is {primary_color} and the main layout follows the {primary_layout} format."
+        )
+        desc_text = (
+            f"Tone: {design_description.tone}\n"
+            f"Font: {design_description.font}\n"
+            f"Key Message Rule: {design_description.key_message_rule}\n"
+            f"Density: {design_description.density}\n"
+            f"Visual: {design_description.visual}"
+        )
+        format_text = (
+            f"The output must be an actual presentation file (.pptx) that can be opened in PowerPoint/Google Slides.\n"
+            f"NOT code, NOT written descriptions.\n"
+        )
+        note_text = (
             "Use factual information from the source document. "
             "Do not fabricate data."
         )
+        headers = {
+            "role":    "[YOUR ROLE]",
+            "task":    "[YOUR TASK]",
+            "guide":   "[GUIDELINES]",
+            "desc":    "[DESIGN DESCRIPTION]",
+            "format":  "[OUTPUT FORMAT]",
+            "note":    "[NOTE]",
+            "content": "[SLIDE CONTENT]",
+            "no_doc":  "(No source material — create appropriate content based on title and instruction)",
+            "closing": "Now please create PowerPoint slides for all items above.",
+        }
 
     lines = [
-        "[NHIỆM VỤ CỦA BẠN]" if language == "vi" else "[YOUR TASK]",
-        action,
+        headers["role"],
+        role_text,
         "",
-        "[VAI TRÒ]" if language == "vi" else "[YOUR ROLE]",
-        system_instruction,
+        headers["task"],
+        task_text,
         "",
-        "[LƯU Ý]" if language == "vi" else "[NOTE]",
-        note,
+        headers["guide"],
+        guideline_text,
         "",
-        "[YÊU CẦU FORMAT OUTPUT]" if language == "vi" else "[OUTPUT FORMAT]",
-        format_rules,
+        headers["desc"],
+        desc_text,
+        "",
+        headers["note"],
+        note_text,
+        "",
+        headers["format"],
+        format_text,
         "",
         "=" * 60,
-        "[NỘI DUNG TỪNG SLIDE]" if language == "vi" else "[SLIDE CONTENT]",
+        headers["content"],
         "=" * 60,
         "",
     ]
@@ -311,41 +553,29 @@ def _build_full_master_prompt(
         if slide.content and slide.content.strip():
             lines.append(f"CONTENT: {slide.content}")
         else:
-            no_content = (
-                "CONTENT: (Không có tài liệu — hãy tạo nội dung phù hợp dựa trên tiêu đề và instruction)"
-                if language == "vi"
-                else "CONTENT: (No source material — create appropriate content based on title and instruction)"
-            )
-            lines.append(no_content)
+            lines.append(f"CONTENT: {headers['no_doc']}")
         lines.append("")
 
     lines.append("=" * 60)
-    if language == "vi":
-        lines.append("Bây giờ hãy bắt đầu tạo Slide PowerPoint cho tất cả slide theo format trên.")
-    else:
-        lines.append("Now please create PowerPoint slides for all items above.")
+    lines.append(headers["closing"])
 
     return "\n".join(lines)
 
 
 # ── Helper ─────────────────────────────────────────────────────────────
-_CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
+# Xóa markdown code fence (```json ... ```) nếu model trả về
+_CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*\n|\n\s*```\s*$", re.IGNORECASE)
 
 
 def _safe_parse(raw: str) -> dict:
-    """
-    Parse JSON từ Gemini, tự xử lý code fence ```json...```.
-    Trả về dict rỗng nếu parse fail.
-    """
+    """Parse JSON từ Gemini response. Raise ValueError nếu parse thất bại (để tenacity retry)."""
     if not raw:
-        return {}
-
-    cleaned = raw.strip()
-    # Bỏ code fence ở đầu và cuối (an toàn hơn lstrip vốn chỉ theo charset)
-    cleaned = _CODE_FENCE_RE.sub("", cleaned).strip()
-
+        # resp.text là None hoặc "" khi Gemini lọc nội dung (SAFETY/RECITATION)
+        raise ValueError("Gemini trả về response rỗng hoặc None")
+    cleaned = _CODE_FENCE_RE.sub("", raw).strip()
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError as e:
-        logger.error(f"JSON parse error: {e} | raw[:300]: {raw[:300]}")
-        return {}
+        logger.error(f"JSON parse error: {e}")
+        logger.error(f"Full raw response:\n{raw}")
+        raise ValueError(f"Gemini trả về JSON không hợp lệ: {e}") from e

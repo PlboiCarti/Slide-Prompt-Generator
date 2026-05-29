@@ -10,8 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from api.auth_router import router as auth_router
-from api.bin_router import router as bin_router
-from api.draft_router import router as draft_router
 from api.prompt_router import router as prompt_router
 from database.connection import create_tables
 from utils.config import get_settings
@@ -63,21 +61,19 @@ app.add_middleware(
 
 app.include_router(prompt_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
-app.include_router(bin_router, prefix="/api")
-app.include_router(draft_router, prefix="/api")
 
 
 @app.get("/", tags=["Health Check"])
 def root():
+    base = _settings.BASE_URL.rstrip("/")
     return {
         "app": "Prompt Builder",
-        "docs": "http://localhost:8000/docs",
+        "docs": f"{base}/docs",
         "endpoints": {
             "generate": "POST /api/generate",
             "status": "GET  /api/jobs/{job_id}",
             "register": "POST /api/auth/register",
             "login": "POST /api/auth/login",
             "me": "GET  /api/auth/me",
-    "description": "POST /api/description/generate",
         },
     }
