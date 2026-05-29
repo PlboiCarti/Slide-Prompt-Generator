@@ -13,7 +13,7 @@ class JobStatus(str, Enum):
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
-
+    DRAFT = "DRAFT"
 
 class GenerateResponse(BaseModel):
     """Trả về ngay khi nhận yêu cầu tạo prompt."""
@@ -31,3 +31,25 @@ class JobStatusResponse(BaseModel):
     error_message: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class HistoryItemResponse(BaseModel):
+    id: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    purpose: str | None = None
+    has_result: bool = False
+    error_message: str | None = None
+
+
+class SaveDraftRequest(BaseModel):
+    purpose: str
+    audience: str
+    style: str
+    primary_color: str
+    slide_count: int
+    primary_layout: str
+    content: str
+    language: str
+    description: dict[str, Any] | None = None
