@@ -3,6 +3,8 @@ import { AuthProvider } from './context/AuthContext'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { GeneratePage } from './pages/GeneratePage'
+import { HistoryPage } from './pages/HistoryPage'
+import { BinPage } from './pages/BinPage'
 import { CallbackPage } from './pages/CallbackPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
@@ -20,6 +22,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <GeneratePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/history"
+            element={
+              <ProtectedRoute>
+                <HistoryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/bin"
+            element={
+              <ProtectedRoute>
+                <BinPage />
               </ProtectedRoute>
             }
           />
