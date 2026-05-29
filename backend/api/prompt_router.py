@@ -183,6 +183,7 @@ async def generate(
     }
 
     job = Job(
+        user_id=current_user.id,
         input_payload=json.dumps(payload, ensure_ascii=False),
         status="PENDING",
     )
@@ -216,9 +217,21 @@ async def generate(
     response_model=JobStatusResponse,
     tags=["Job Status"],
 )
-def get_job_status(job_id: str, db: Session = Depends(get_db)):
+def get_job_status(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Poll trạng thái job. Frontend gọi mỗi 3s cho đến khi COMPLETED hoặc FAILED."""
-    job = db.query(Job).filter(Job.id == job_id).first()
+    job = (
+        db.query(Job)
+        .filter(
+            Job.id == job_id,
+            Job.user_id == current_user.id,
+            Job.deleted_at.is_(None),
+        )
+        .first()
+    )
 
     if not job:
         raise HTTPException(

@@ -19,6 +19,16 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('access_token')
+    }
+    return Promise.reject(error)
+  }
+)
+
 export interface LoginPayload {
   email: string
   password: string
@@ -57,6 +67,55 @@ export interface GeneratePayload {
   language: string
   pdf_file?: File
   description?: DesignDescription  // từ Phase 1, user đã chỉnh
+}
+
+export type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'DRAFT'
+
+export interface JobResult {
+  full_master_prompt?: string
+  total_slides?: number
+  [key: string]: unknown
+}
+
+export interface JobStatusResponse {
+  job_id: string
+  status: JobStatus
+  result: JobResult | null
+  error_message: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface HistoryItem {
+  id: string
+  status: JobStatus
+  created_at: string
+  updated_at: string
+  purpose: string | null
+  has_result: boolean
+  error_message: string | null
+}
+
+export interface BinItem {
+  id: string
+  status: JobStatus
+  purpose: string | null
+  has_result: boolean
+  error_message: string | null
+  deleted_at: string
+  created_at: string
+}
+
+export interface SaveDraftPayload {
+  purpose: string
+  audience: string
+  style: string
+  primary_color: string
+  slide_count: number
+  primary_layout: string
+  content: string
+  language: string
+  description?: DesignDescription | null
 }
 
 export const authAPI = {
@@ -100,7 +159,29 @@ export const promptAPI = {
     })
   },
 
-  getJobStatus: (jobId: string) => api.get(`/jobs/${jobId}`),
+  getJobStatus: (jobId: string) => api.get<JobStatusResponse>(`/jobs/${jobId}`),
+}
+
+export const historyAPI = {
+  getHistory: (statusFilter?: string) =>
+    api.get<HistoryItem[]>('/history', {
+      params: statusFilter ? { status: statusFilter } : undefined,
+    }),
+  softDelete: (id: string) => api.delete(`/history/${id}`),
+  getJobResult: (id: string) => api.get<JobStatusResponse>(`/jobs/${id}`),
+}
+
+export const draftAPI = {
+  saveDraft: (data: SaveDraftPayload) => api.post<HistoryItem>('/drafts', data),
+  updateDraft: (id: string, data: SaveDraftPayload) => api.put<HistoryItem>(`/drafts/${id}`, data),
+  getDraft: (id: string) => api.get<SaveDraftPayload>(`/drafts/${id}`),
+}
+
+export const binAPI = {
+  getBin: () => api.get<BinItem[]>('/bin'),
+  restore: (id: string) => api.post<BinItem>(`/bin/${id}/restore`),
+  hardDelete: (id: string) => api.delete(`/bin/${id}`),
+  emptyBin: () => api.delete('/bin'),
 }
 
 export default api
