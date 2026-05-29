@@ -257,7 +257,7 @@ GENERATE_LOCKOUT_MINUTES=10
 
 | Method | Endpoint | Auth | Mô tả |
 |--------|----------|------|-------|
-| POST | `/api/generate-description` | Không | Phase 1 — phân tích & gợi ý thiết kế (sync, ~3–5s) |
+| POST | `/api/generate-description` | **Bắt buộc** | Phase 1 — phân tích & gợi ý thiết kế (sync, ~3–5s) |
 | POST | `/api/generate` | **Bắt buộc** | Phase 2 — tạo job sinh Master Prompt (async) |
 | GET | `/api/jobs/{job_id}` | Không | Kiểm tra trạng thái job |
 
@@ -279,7 +279,7 @@ PENDING → PROCESSING → COMPLETED
 | Rate limit generate | `MAX_GENERATE_ATTEMPTS=5` / `GENERATE_LOCKOUT_MINUTES=10` — giới hạn số lần tạo prompt liên tiếp theo user. |
 | Gemini rate limit | `gemini-2.5-flash`: 5 req/phút. Pipeline có delay để tránh lỗi 429. |
 | Google OAuth cần cấu hình | Phải thêm redirect URI vào Google Cloud Console. |
-| Phase 1 không cần auth | `POST /api/generate-description` không yêu cầu đăng nhập. `POST /api/generate` yêu cầu Bearer token. |
+| Phase 1 & 2 đều cần auth | Cả `POST /api/generate-description` và `POST /api/generate` đều yêu cầu Bearer token. Rate limit 5 lần/10 phút theo user, dùng chung quota. |
 
 ---
 

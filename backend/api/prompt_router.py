@@ -51,12 +51,28 @@ _DESC_FIELD_LABELS = {
     tags=["Prompt Generation"],
     summary="Phase 1 — Phân tích & gợi ý thiết kế",
 )
-def generate_description(data: DescribeRequest):
+def generate_description(
+    data: DescribeRequest,
+    current_user: User = Depends(get_current_user),):
     """
     Nhận 6 trường form → gọi Gemini → trả về mô tả thiết kế (tone, font, ...).
     Synchronous — không tạo job, không cần poll.
     Frontend hiển thị kết quả cho user chỉnh sửa, rồi gửi sang Phase 2.
     """
+
+    if generate_tracker.is_locked(current_user.id):
+        retry_after = generate_tracker.time_until_unlock(current_user.id)
+        minutes = max(1, round(retry_after / 60))
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"Bạn đã gửi quá nhiều yêu cầu. "
+                f"Vui lòng thử lại sau khoảng {minutes} phút."
+            ),
+            headers={"Retry-After": str(retry_after)},
+        )
+    generate_tracker.record_failed_attempt(current_user.id)
+        
     logger.info(
         f"Phase1 generate-description | purpose='{data.purpose[:40]}' "
         f"| lang={data.language}"
