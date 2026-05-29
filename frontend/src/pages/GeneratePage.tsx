@@ -445,6 +445,15 @@ export function GeneratePage() {
             <div className="gen-reanalyze-row">
               <button
                 type="button"
+                className="gen-draft-btn"
+                onClick={handleSaveDraft}
+                disabled={isDraftSaving}
+              >
+                {isDraftSaving ? 'Dang luu...' : currentDraftId ? 'Cap nhat nhap' : 'Luu nhap'}
+              </button>
+              {draftMessage && <span className="gen-draft-message">{draftMessage}</span>}
+              <button
+                type="button"
                 className="gen-reanalyze-btn"
                 onClick={() => { setDescription(null); setDescError('') }}
               >
