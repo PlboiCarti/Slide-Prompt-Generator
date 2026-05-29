@@ -1,10 +1,12 @@
 """
 models/job.py — Bảng jobs (async processing)
 """
+import json
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, String, Text
+from sqlalchemy.orm import relationship
 
 from database.connection import Base
 
@@ -17,8 +19,25 @@ class Job(Base):
     input_payload = Column(Text, nullable=False)
     result_payload = Column(Text, nullable=True)
     error_message = Column(Text, nullable=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
+    user_id = Column(
+        String,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    user = relationship("User", back_populates="jobs")
+
+    @property
+    def input_dict(self) -> dict:
+        return json.loads(self.input_payload) if self.input_payload else {}
+
+    @property
+    def output_dict(self) -> dict:
+        return json.loads(self.result_payload) if self.result_payload else {}
 
