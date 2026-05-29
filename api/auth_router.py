@@ -1,0 +1,148 @@
+"""
+api/auth_router.py — HTTP routes cho authentication
+"""
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse, RedirectResponse
+from sqlalchemy.orm import Session
+
+from core.dependencies import get_current_user
+from core.oauth import oauth
+from database.connection import get_db
+from models.user import User
+from schemas.auth import (
+    MessageResponse,
+    TokenResponse,
+    UserLogin,
+    UserRegister,
+    UserResponse,
+)
+from services.auth_service import AuthService
+from utils.config import get_settings
+
+settings = get_settings()
+
+router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+# ── EMAIL / PASSWORD ──────────────────────────────────────────────────
+@router.post(
+    "/register",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def register(data: UserRegister, db: Session = Depends(get_db)):
+    """Đăng ký bằng email/password. Trả về user info — chưa có token vì cần verify email."""
+    service = AuthService(db)
+    user = service.register_with_email(data)
+    return user
+
+
+@router.post("/login", response_model=TokenResponse)
+def login(data: UserLogin, db: Session = Depends(get_db)):
+    """Đăng nhập bằng email/password → trả JWT."""
+    service = AuthService(db)
+    user, access_token = service.login_with_email(data.email, data.password)
+    return TokenResponse(
+        access_token=access_token,
+        user=UserResponse.model_validate(user),
+    )
+
+
+@router.get("/verify-email")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    """
+    Xác thực email từ link trong email.
+    Redirect về frontend (không trả JSON) để có UX tốt.
+    """
+    service = AuthService(db)
+    try:
+        service.verify_email(token)
+        # Thành công → redirect về trang login với param báo thành công
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/login?verified=success",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except HTTPException as e:
+        # Token hết hạn / sai → redirect kèm message lỗi
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/login?verified=error&msg={quote(e.detail)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+
+# ── GOOGLE OAUTH ──────────────────────────────────────────────────────
+@router.get("/google")
+async def google_login(request: Request):
+    """Bước 1: Redirect user sang Google."""
+    redirect_uri = settings.GOOGLE_REDIRECT_URI
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@router.get("/google/callback")
+async def google_callback(request: Request, db: Session = Depends(get_db)):
+    """
+    Bước 2: Google redirect về đây sau khi user đồng ý.
+    LUÔN redirect về frontend (kể cả lỗi) để không kẹt user ở trang JSON.
+    """
+    # ── 1. Lấy token từ Google ──────────────────────────────────────
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except Exception as e:
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/login?error={quote(f'OAuth thất bại: {e}')}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    google_user = token.get("userinfo")
+    if not google_user:
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/login?error={quote('Không lấy được thông tin từ Google')}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    # ── 2. Xử lý login/register ─────────────────────────────────────
+    service = AuthService(db)
+    try:
+        user, access_token, login_status = service.login_or_register_with_google(
+            google_id=google_user["sub"],
+            email=google_user["email"],
+            verified_by_google=google_user.get("email_verified", False),
+        )
+    except HTTPException as e:
+        # Vd: email đã đăng ký bằng password → redirect về login kèm message
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/login?error={quote(e.detail)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    # ── 3. Thành công → set cookie + redirect về callback page ──────
+    response = RedirectResponse(
+        url=f"{settings.FRONTEND_URL}/auth/callback?status={login_status}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=settings.is_production,
+        samesite="lax",
+        max_age=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+    return response
+
+
+# ── USER INFO ─────────────────────────────────────────────────────────
+@router.get("/me", response_model=UserResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    """Lấy thông tin user hiện tại."""
+    return current_user
+
+
+@router.post("/logout", response_model=MessageResponse)
+def logout(current_user: User = Depends(get_current_user)):
+    """Đăng xuất — xóa cookie HttpOnly."""
+    response = JSONResponse(content={"message": "Đăng xuất thành công"})
+    response.delete_cookie("access_token")
+    return response
