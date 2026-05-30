@@ -8,7 +8,7 @@ from core.dependencies import get_current_user
 from database.connection import get_db
 from models.job import Job
 from models.user import User
-from schemas.jobs import HistoryItemResponse, SaveDraftRequest
+from schemas.jobs import HistoryItemResponse, JobStatus, SaveDraftRequest
 from services.job_history_service import get_owned_draft, to_history_item
 
 router = APIRouter(tags=["Drafts"])
@@ -23,7 +23,7 @@ def save_draft(
 ):
     job = Job(
         user_id=current_user.id,
-        status="DRAFT",
+        status=JobStatus.DRAFT.value,
         input_payload=json.dumps(data.model_dump(), ensure_ascii=False),
     )
     db.add(job)

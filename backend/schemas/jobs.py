@@ -15,10 +15,11 @@ class JobStatus(str, Enum):
     FAILED = "FAILED"
     DRAFT = "DRAFT"
 
+
 class GenerateResponse(BaseModel):
     """Trả về ngay khi nhận yêu cầu tạo prompt."""
     job_id: str
-    status: str = "PENDING"
+    status: JobStatus = JobStatus.PENDING
     message: str = "Yêu cầu đã được tiếp nhận và đang xử lý."
     created_at: datetime
 
@@ -26,7 +27,7 @@ class GenerateResponse(BaseModel):
 class JobStatusResponse(BaseModel):
     """Trả về khi poll trạng thái job."""
     job_id: str
-    status: str
+    status: JobStatus
     result: dict[str, Any] | None = None
     error_message: str | None = None
     created_at: datetime
@@ -35,7 +36,7 @@ class JobStatusResponse(BaseModel):
 
 class HistoryItemResponse(BaseModel):
     id: str
-    status: str
+    status: JobStatus
     created_at: datetime
     updated_at: datetime
     purpose: str | None = None
