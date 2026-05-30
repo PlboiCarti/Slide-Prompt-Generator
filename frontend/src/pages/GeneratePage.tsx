@@ -1,7 +1,7 @@
 import { useState, useEffect, ChangeEvent, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { promptAPI, DesignDescription } from '../services/api'
+import { promptAPI, DesignDescription, draftAPI, SaveDraftPayload, JobStatusResponse } from '../services/api'
 import './GeneratePage.css'
 
 // Phải khớp với backend
@@ -51,6 +51,7 @@ const DESC_HINTS: Record<keyof DesignDescription, string> = {
 export function GeneratePage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   // Form data
   const [formData, setFormData] = useState({
@@ -73,10 +74,13 @@ export function GeneratePage() {
 
   // Phase 2 state
   const [isGenerating, setIsGenerating] = useState(false)
-  const [jobStatus, setJobStatus] = useState<any>(null)
+  const [jobStatus, setJobStatus] = useState<JobStatusResponse | null>(null)
   const [jobId, setJobId] = useState<string | null>(null)
   const [isPolling, setIsPolling] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null)
+  const [isDraftSaving, setIsDraftSaving] = useState(false)
+  const [draftMessage, setDraftMessage] = useState('')
 
   // UI state
   const [copied, setCopied] = useState(false)
@@ -88,6 +92,26 @@ export function GeneratePage() {
   useEffect(() => {
     if (!user) navigate('/login')
   }, [user, navigate])
+
+  useEffect(() => {
+    const draft = (location.state as { draft?: SaveDraftPayload & { draftId?: string } } | null)?.draft
+    if (!draft) return
+
+    setFormData({
+      purpose: draft.purpose,
+      audience: draft.audience,
+      style: draft.style,
+      primary_color: draft.primary_color,
+      slide_count: draft.slide_count,
+      primary_layout: draft.primary_layout,
+      content: draft.content,
+      language: draft.language,
+    })
+    setDescription((draft.description as DesignDescription | null) || null)
+    setCurrentDraftId(draft.draftId || null)
+    setDraftMessage('Da tai ban nhap')
+    window.history.replaceState({}, '', '/generate')
+  }, [location.state])
 
   // Tự scroll xuống description panel khi Phase 1 xong
   useEffect(() => {
@@ -106,8 +130,19 @@ export function GeneratePage() {
         if (response.data.status === 'COMPLETED' || response.data.status === 'FAILED') {
           setIsPolling(false)
         }
-      } catch { /* ignore network hiccups */ }
+      } catch (err: any) {
+        setJobStatus({
+          job_id: jobId,
+          status: 'FAILED',
+          result: null,
+          error_message: err.response?.data?.detail || 'Khong the lay trang thai job',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        setIsPolling(false)
+      }
     }
+    checkStatus()
     const timer = setInterval(checkStatus, 2000)
     return () => clearInterval(timer)
   }, [jobId, isPolling])
@@ -141,6 +176,35 @@ export function GeneratePage() {
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     setPdfFile(e.target.files?.[0] || null)
+  }
+
+  const handleSaveDraft = async () => {
+    setDraftMessage('')
+    if (formData.purpose.trim().length < 3 || formData.audience.trim().length < 3) {
+      setDraftMessage('Can nhap muc dich va doi tuong truoc khi luu nhap')
+      return
+    }
+
+    setIsDraftSaving(true)
+    const payload: SaveDraftPayload = {
+      ...formData,
+      description: description || null,
+    }
+
+    try {
+      if (currentDraftId) {
+        await draftAPI.updateDraft(currentDraftId, payload)
+        setDraftMessage('Da cap nhat nhap')
+      } else {
+        const res = await draftAPI.saveDraft(payload)
+        setCurrentDraftId(res.data.id)
+        setDraftMessage('Da luu nhap')
+      }
+    } catch (err: any) {
+      setDraftMessage(err.response?.data?.detail || 'Luu nhap that bai')
+    } finally {
+      setIsDraftSaving(false)
+    }
   }
 
   // ── PHASE 1: Phân tích thiết kế ──────────────────────────────────
@@ -261,6 +325,7 @@ export function GeneratePage() {
             </svg>
             {showUserMenu && (
               <div className="gen-user-menu" onClick={e => e.stopPropagation()}>
+                <button onClick={() => navigate('/history')}>Lịch sử Prompt</button>
                 <button onClick={handleLogout}>Đăng xuất</button>
               </div>
             )}
@@ -280,6 +345,18 @@ export function GeneratePage() {
 
         {/* ── Bước 1 & 2: Form thông tin cơ bản ─────────── */}
         <div className="gen-form">
+          <div className="gen-form-toolbar">
+            {draftMessage && <span className="gen-draft-message">{draftMessage}</span>}
+            <button
+              type="button"
+              className="gen-draft-btn"
+              onClick={handleSaveDraft}
+              disabled={isDraftSaving || isFormLocked}
+            >
+              {isDraftSaving ? 'Đang lưu...' : currentDraftId ? 'Cập nhật Draft' : 'Lưu Draft'}
+            </button>
+          </div>
+
           {/* Section 1: Thông tin cơ bản */}
           <section className="gen-section">
             <h2 className="gen-section-title">
