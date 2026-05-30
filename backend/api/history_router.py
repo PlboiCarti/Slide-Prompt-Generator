@@ -41,7 +41,7 @@ def get_history(
         if normalized_status not in HISTORY_VISIBLE_STATUSES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Status filter không hợp lệ",
+                detail="Trạng thái lọc không hợp lệ.",
             )
         query = query.filter(Job.status == normalized_status)
 
@@ -61,7 +61,7 @@ def soft_delete_history_item(
     db.refresh(job)
 
     logger.info("Soft-deleted history job %s", str(job.id)[:8])
-    return {"message": "Đã đưa item vào thùng rác.", "id": str(job.id)}
+    return {"message": "Đã chuyển mục vào thùng rác.", "id": str(job.id)}
 
 
 @router.get("/bin", response_model=list[BinItemResponse])
