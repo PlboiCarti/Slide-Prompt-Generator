@@ -96,7 +96,7 @@ def get_owned_draft(job_id: str, user: User, db: Session) -> Job:
         .filter(
             Job.id == job_id,
             Job.user_id == user.id,
-            Job.status == "DRAFT",
+            Job.status == JobStatus.DRAFT.value,
             Job.deleted_at.is_(None),
         )
         .first()

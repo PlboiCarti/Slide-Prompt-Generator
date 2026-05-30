@@ -2,10 +2,12 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from schemas.jobs import JobStatus
+
 
 class BinItemResponse(BaseModel):
     id: str
-    status: str
+    status: JobStatus
     purpose: str | None = None
     audience: str | None = None
     has_result: bool = False
