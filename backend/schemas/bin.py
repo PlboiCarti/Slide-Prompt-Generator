@@ -7,6 +7,7 @@ class BinItemResponse(BaseModel):
     id: str
     status: str
     purpose: str | None = None
+    audience: str | None = None
     has_result: bool = False
     error_message: str | None = None
     deleted_at: datetime

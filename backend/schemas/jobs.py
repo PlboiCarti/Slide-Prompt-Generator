@@ -39,6 +39,7 @@ class HistoryItemResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     purpose: str | None = None
+    audience: str | None = None
     has_result: bool = False
     error_message: str | None = None
 
