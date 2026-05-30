@@ -10,8 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from api.auth_router import router as auth_router
-from api.draft_router import router as draft_router
-from api.history_router import router as history_router
 from api.prompt_router import router as prompt_router
 from database.connection import create_tables
 from utils.config import get_settings
@@ -63,8 +61,6 @@ app.add_middleware(
 
 app.include_router(prompt_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
-app.include_router(history_router, prefix="/api")
-app.include_router(draft_router, prefix="/api")
 
 
 @app.get("/", tags=["Health Check"])
@@ -79,8 +75,5 @@ def root():
             "register": "POST /api/auth/register",
             "login": "POST /api/auth/login",
             "me": "GET  /api/auth/me",
-            "history": "GET  /api/history",
-            "drafts": "POST /api/drafts",
-            "bin": "GET  /api/bin",
         },
     }

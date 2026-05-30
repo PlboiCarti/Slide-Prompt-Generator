@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { GeneratePage } from './pages/GeneratePage'
+import { HistoryPage } from './pages/HistoryPage'
 import { CallbackPage } from './pages/CallbackPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
@@ -23,6 +24,15 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/history"
+            element={
+              <ProtectedRoute>
+                <HistoryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/bin" element={<Navigate to="/history" replace />} />
 
           <Route path="/" element={<Navigate to="/generate" replace />} />
           <Route path="*" element={<Navigate to="/generate" replace />} />
