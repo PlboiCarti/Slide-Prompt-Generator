@@ -21,6 +21,7 @@ def save_draft(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Draft được lưu như một job để dùng chung danh sách history và luồng thùng rác.
     job = Job(
         user_id=current_user.id,
         status=JobStatus.DRAFT.value,
@@ -40,6 +41,7 @@ def update_draft(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # get_owned_draft đảm bảo đúng chủ sở hữu và đúng status DRAFT trước khi sửa.
     job = get_owned_draft(job_id, current_user, db)
     job.input_payload = json.dumps(data.model_dump(), ensure_ascii=False)
     db.commit()
@@ -53,6 +55,8 @@ def get_draft(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Dữ liệu form đã lưu nằm trong input_payload; endpoint này bung lại về schema
+    # draft form cho frontend.
     job = get_owned_draft(job_id, current_user, db)
     try:
         return json.loads(job.input_payload)

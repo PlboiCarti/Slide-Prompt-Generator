@@ -6,6 +6,7 @@ from schemas.jobs import JobStatus
 
 
 class BinItemResponse(BaseModel):
+    """Bản ghi rút gọn hiển thị cho item history đã xóa mềm."""
     id: str
     status: JobStatus
     purpose: str | None = None
