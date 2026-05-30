@@ -325,8 +325,7 @@ export function GeneratePage() {
             </svg>
             {showUserMenu && (
               <div className="gen-user-menu" onClick={e => e.stopPropagation()}>
-                <button onClick={() => navigate('/history')}>Lich su Prompt</button>
-                <button onClick={() => navigate('/bin')}>Thung rac</button>
+                <button onClick={() => navigate('/history')}>Lịch sử Prompt</button>
                 <button onClick={handleLogout}>Đăng xuất</button>
               </div>
             )}
@@ -346,6 +345,18 @@ export function GeneratePage() {
 
         {/* ── Bước 1 & 2: Form thông tin cơ bản ─────────── */}
         <div className="gen-form">
+          <div className="gen-form-toolbar">
+            {draftMessage && <span className="gen-draft-message">{draftMessage}</span>}
+            <button
+              type="button"
+              className="gen-draft-btn"
+              onClick={handleSaveDraft}
+              disabled={isDraftSaving || isFormLocked}
+            >
+              {isDraftSaving ? 'Đang lưu...' : currentDraftId ? 'Cập nhật Draft' : 'Lưu Draft'}
+            </button>
+          </div>
+
           {/* Section 1: Thông tin cơ bản */}
           <section className="gen-section">
             <h2 className="gen-section-title">
@@ -443,15 +454,6 @@ export function GeneratePage() {
           {/* ── Nút "Phân tích lại" khi đã có description ── */}
           {description && !isRunning && (
             <div className="gen-reanalyze-row">
-              <button
-                type="button"
-                className="gen-draft-btn"
-                onClick={handleSaveDraft}
-                disabled={isDraftSaving}
-              >
-                {isDraftSaving ? 'Dang luu...' : currentDraftId ? 'Cap nhat nhap' : 'Luu nhap'}
-              </button>
-              {draftMessage && <span className="gen-draft-message">{draftMessage}</span>}
               <button
                 type="button"
                 className="gen-reanalyze-btn"

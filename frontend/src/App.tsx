@@ -4,7 +4,6 @@ import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { GeneratePage } from './pages/GeneratePage'
 import { HistoryPage } from './pages/HistoryPage'
-import { BinPage } from './pages/BinPage'
 import { CallbackPage } from './pages/CallbackPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
@@ -33,14 +32,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/bin"
-            element={
-              <ProtectedRoute>
-                <BinPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/bin" element={<Navigate to="/history" replace />} />
 
           <Route path="/" element={<Navigate to="/generate" replace />} />
           <Route path="*" element={<Navigate to="/generate" replace />} />

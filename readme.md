@@ -1,12 +1,12 @@
 # Prompt Builder
 
-Prompt Builder là ứng dụng web dùng AI để tạo **Master Prompt** cho bài thuyết trình PowerPoint. Người dùng nhập mục tiêu, đối tượng, phong cách thiết kế, nội dung nguồn hoặc PDF; hệ thống phân tích bằng Gemini và sinh ra một prompt hoàn chỉnh để copy sang ChatGPT, Claude, Gemini hoặc công cụ AI tạo slide khác.
+Prompt Builder là ứng dụng web dùng AI để tạo **Master Prompt** cho bài thuyết trình PowerPoint. Người dùng nhập mục tiêu, đối tượng, phong cách thiết kế, nội dung nguồn hoặc PDF; backend dùng Gemini để phân tích thiết kế và sinh prompt hoàn chỉnh có thể copy sang ChatGPT, Claude, Gemini hoặc công cụ tạo slide khác.
 
-## Mục Tiêu Đồ Án
+## Mục Tiêu
 
-Ứng dụng giải quyết bài toán: người dùng thường có tài liệu và ý tưởng trình bày, nhưng khó viết prompt đủ chi tiết để AI tạo được bộ slide đúng mục tiêu, đúng đối tượng và có thiết kế nhất quán.
+Dự án giải quyết vấn đề người dùng có tài liệu và ý tưởng thuyết trình nhưng khó viết prompt đủ chi tiết để AI tạo được bộ slide đúng mục tiêu, đúng đối tượng và nhất quán về thiết kế.
 
-Prompt Builder tách quy trình thành hai giai đoạn:
+Luồng chính gồm hai giai đoạn:
 
 1. **Phân tích thiết kế**: AI gợi ý tone, font, quy tắc thông điệp, mật độ nội dung và định hướng visual.
 2. **Sinh Master Prompt**: AI tạo cấu trúc slide, chia nội dung nguồn vào từng slide và ghép thành prompt cuối cùng.
@@ -14,7 +14,7 @@ Prompt Builder tách quy trình thành hai giai đoạn:
 ## Tính Năng Chính
 
 - Đăng ký, đăng nhập bằng email và mật khẩu.
-- Xác thực email trước khi đăng nhập.
+- Xác thực email trước khi đăng nhập bằng password.
 - Đăng nhập bằng Google OAuth.
 - Bảo vệ route bằng JWT, đọc token từ `Authorization: Bearer` hoặc cookie `access_token`.
 - Sinh mô tả thiết kế bằng Gemini ở Phase 1.
@@ -22,9 +22,9 @@ Prompt Builder tách quy trình thành hai giai đoạn:
 - Sinh Master Prompt bất đồng bộ bằng background thread ở Phase 2.
 - Nhận nội dung nguồn từ textarea, file PDF hoặc cả hai.
 - Trích xuất text từ PDF bằng `pypdf`.
-- Lưu lịch sử các lần tạo prompt hoàn tất hoặc thất bại.
-- Lưu và tiếp tục bản nháp.
-- Xóa mềm lịch sử vào thùng rác, khôi phục hoặc xóa vĩnh viễn.
+- Lưu lịch sử các job hoàn tất, thất bại và bản nháp.
+- Lưu, cập nhật và tiếp tục bản nháp.
+- Xóa mềm lịch sử vào thùng rác, khôi phục hoặc xóa vĩnh viễn qua API.
 - Rate limit cho đăng nhập sai và tạo prompt.
 
 ## Tech Stack
@@ -32,7 +32,7 @@ Prompt Builder tách quy trình thành hai giai đoạn:
 | Lớp | Công nghệ |
 | --- | --- |
 | Backend | Python, FastAPI, Uvicorn |
-| Database | SQLAlchemy ORM, SQLite mặc định, có hỗ trợ URL Postgres |
+| Database | SQLAlchemy ORM, SQLite mặc định, có thể dùng PostgreSQL qua URL |
 | AI | Google Gemini API qua `google-generativeai` |
 | Auth | JWT, Argon2 qua `pwdlib`, Google OAuth qua Authlib |
 | Frontend | React 18, TypeScript, Vite, React Router v6 |
@@ -53,6 +53,7 @@ prompt_builder/
 ├── backend/
 │   ├── main.py
 │   ├── requirements.txt
+│   ├── env.example
 │   ├── api/
 │   │   ├── auth_router.py
 │   │   ├── prompt_router.py
@@ -77,6 +78,7 @@ prompt_builder/
 │   │   ├── auth_service.py
 │   │   ├── content_extractor.py
 │   │   ├── email_service.py
+│   │   ├── job_history_service.py
 │   │   └── llm_service.py
 │   ├── utils/
 │   │   ├── config.py
@@ -85,10 +87,15 @@ prompt_builder/
 │       └── pipeline_worker.py
 └── frontend/
     ├── package.json
+    ├── package-lock.json
     ├── vite.config.ts
+    ├── tsconfig.json
+    ├── tsconfig.node.json
+    ├── index.html
     └── src/
         ├── App.tsx
         ├── main.tsx
+        ├── index.css
         ├── services/api.ts
         ├── context/AuthContext.tsx
         ├── components/ProtectedRoute.tsx
@@ -97,8 +104,11 @@ prompt_builder/
             ├── RegisterPage.tsx
             ├── CallbackPage.tsx
             ├── GeneratePage.tsx
+            ├── GeneratePage.css
             ├── HistoryPage.tsx
-            └── BinPage.tsx
+            ├── HistoryPage.css
+            ├── BinPage.tsx
+            └── AuthPage.css
 ```
 
 ## Kiến Trúc Tổng Quan
@@ -120,6 +130,7 @@ FastAPI Backend
     |   +-- LLM Service
     |   +-- Content Extractor
     |   +-- Email Service
+    |   +-- Job History Service
     |
     +-- SQLAlchemy Models
     |   +-- User
@@ -129,21 +140,21 @@ FastAPI Backend
     +-- Gemini API
 ```
 
-Backend tạo bảng khi app khởi động bằng `create_tables()` trong lifespan của FastAPI. CORS được giới hạn theo `ALLOWED_ORIGINS`. Google OAuth cần `SessionMiddleware` để lưu state tạm thời.
+Backend tạo bảng khi app khởi động bằng `create_tables()` trong lifespan của FastAPI. CORS được giới hạn theo `ALLOWED_ORIGINS`. Google OAuth dùng `SessionMiddleware` để lưu state tạm thời.
 
 ## Luồng Người Dùng
 
 1. Người dùng đăng ký tài khoản bằng email và mật khẩu.
 2. Backend tạo user, hash password, tạo token xác thực email và gửi email nếu SMTP đã cấu hình.
 3. Người dùng xác thực email qua link `/api/auth/verify-email?token=...`.
-4. Người dùng đăng nhập, frontend lưu JWT vào `localStorage`.
-5. Người dùng vào trang `/generate`, nhập thông tin bài thuyết trình.
+4. Người dùng đăng nhập, frontend lưu JWT vào `localStorage`; Google OAuth dùng cookie `access_token`.
+5. Người dùng vào `/generate`, nhập thông tin bài thuyết trình.
 6. Frontend gọi `POST /api/generate-description` để Gemini sinh mô tả thiết kế.
 7. Người dùng chỉnh sửa mô tả thiết kế nếu cần.
 8. Người dùng nhập text, upload PDF hoặc dùng cả hai.
 9. Frontend gọi `POST /api/generate` dạng multipart form.
 10. Backend tạo `Job` trạng thái `PENDING`, chạy pipeline trong background thread.
-11. Frontend poll `GET /api/jobs/{job_id}` mỗi 2 giây.
+11. Frontend poll `GET /api/jobs/{job_id}` cho đến khi job `COMPLETED` hoặc `FAILED`.
 12. Khi job `COMPLETED`, frontend hiển thị `full_master_prompt` để copy.
 
 ## Logic Sinh Prompt
@@ -211,23 +222,23 @@ File: `backend/services/content_extractor.py`
 - Nếu PDF là ảnh scan hoặc không trích xuất được text, backend trả lỗi rõ ràng.
 - Nếu có cả text và PDF, hệ thống ghép text trước, PDF sau, ngăn cách bằng `---`.
 
-Trong `llm_service.py`, nếu nội dung dài hơn `12_000` ký tự, hệ thống tóm tắt đệ quy theo chunk trước khi chia vào slide.
+Trong `llm_service.py`, nếu nội dung dài hơn ngưỡng xử lý nội bộ, hệ thống tóm tắt theo chunk trước khi chia vào slide.
 
 ## Auth Và Bảo Mật
 
 ### Email/password
 
 - Đăng ký tạo bản ghi `User` và `AuthProvider` loại `LOCAL`.
-- Mật khẩu được hash bằng `PasswordHash.recommended()` của `pwdlib`, dùng Argon2 khi dependency hỗ trợ.
+- Mật khẩu được hash bằng `PasswordHash.recommended()` của `pwdlib`.
 - Email verification token được tạo bằng `secrets.token_urlsafe(32)`.
-- Token xác thực email được lưu trong DB ở bảng `users`.
+- Token xác thực email được lưu trong bảng `users`.
 - Token hết hạn theo `EMAIL_VERIFY_TTL_HOURS`, mặc định 24 giờ.
 - User chưa xác thực email không được đăng nhập bằng password.
 
 ### Google OAuth
 
-- Endpoint `/api/auth/google` redirect người dùng sang Google.
-- Callback `/api/auth/google/callback` nhận thông tin Google user.
+- `GET /api/auth/google` redirect người dùng sang Google.
+- `GET /api/auth/google/callback` nhận thông tin Google user.
 - Nếu Google account đã tồn tại, backend đăng nhập ngay.
 - Nếu email đã đăng ký bằng password, backend không tự link Google để tránh chiếm tài khoản.
 - Nếu là user mới, backend tạo `User` và `AuthProvider` loại `GOOGLE`.
@@ -247,9 +258,7 @@ File: `backend/utils/rate_limiter.py`
 - Dùng in-memory dictionary và `threading.Lock`.
 - Login bị khóa tạm sau `MAX_LOGIN_ATTEMPTS` lần sai trong cửa sổ `LOCKOUT_MINUTES`.
 - Generate bị giới hạn theo user id với `MAX_GENERATE_ATTEMPTS` và `GENERATE_LOCKOUT_MINUTES`.
-- Vì lưu in-memory, counter sẽ reset khi server restart.
-
-Lưu ý: trong code hiện tại, generate tracker đang dùng hàm `record_failed_attempt()` như bộ đếm số lần gửi request hợp lệ sau validate, không chỉ đếm lỗi.
+- Vì lưu in-memory, counter reset khi server restart.
 
 ## Database Model
 
@@ -296,8 +305,9 @@ Các route chính trong `frontend/src/App.tsx`:
 | `/register` | Đăng ký tài khoản |
 | `/auth/callback` | Xử lý callback sau Google OAuth |
 | `/generate` | Trang tạo Master Prompt, cần đăng nhập |
-| `/history` | Lịch sử prompt, bản nháp và job thất bại |
-| `/bin` | Thùng rác |
+| `/history` | Lịch sử prompt, bản nháp, job thất bại và thao tác thùng rác |
+| `/bin` | Redirect về `/history` |
+| `/` | Redirect về `/generate` |
 
 `AuthContext` quản lý trạng thái đăng nhập, gọi `/auth/me` khi app load, lưu token email/password vào `localStorage` và xóa token khi logout hoặc gặp 401.
 
@@ -353,6 +363,8 @@ SQLALCHEMY_DATABASE_URL=sqlite:///./prompt_builder.db
 
 GEMINI_API_KEY=your_gemini_api_key_here
 LLM_MODEL=gemini-2.5-flash
+MIN_SLIDES_LIMIT=3
+MAX_SLIDES_LIMIT=30
 
 JWT_SECRET_KEY=change_this_to_a_random_secret_at_least_32_chars
 JWT_ALGORITHM=HS256
@@ -384,6 +396,14 @@ SMTP_FROM_NAME=Prompt Builder
 Tên biến `GEMINI_API_KEY` và `LLM_MODEL` map được vào `gemini_api_key` và `llm_model` nhờ Pydantic Settings không phân biệt hoa thường.
 
 Nếu chưa cấu hình SMTP, backend không gửi email thật mà log link xác thực ra console.
+
+Frontend có thể override API URL bằng biến:
+
+```dotenv
+VITE_API_URL=http://localhost:8000/api
+```
+
+Nếu không đặt, `frontend/src/services/api.ts` mặc định dùng `http://localhost:8000/api`.
 
 ## Cài Đặt Và Chạy Local
 
@@ -420,11 +440,7 @@ Frontend chạy tại:
 
 - `http://localhost:3000`
 
-Vite config đã proxy `/api` sang `http://localhost:8000`, nhưng `frontend/src/services/api.ts` mặc định dùng `http://localhost:8000/api`. Có thể override bằng biến môi trường frontend:
-
-```dotenv
-VITE_API_URL=http://localhost:8000/api
-```
+Vite config proxy `/api` sang `http://localhost:8000`, nhưng Axios đang dùng `VITE_API_URL` hoặc mặc định `http://localhost:8000/api`.
 
 ## Build Frontend
 
@@ -452,10 +468,10 @@ DRAFT là trạng thái riêng cho bản nháp, không đi qua pipeline xử lý
 - Background worker là daemon thread trong cùng process, không dùng Redis/RQ/Celery.
 - Nếu server restart khi job đang chạy, job có thể kẹt ở `PENDING` hoặc `PROCESSING`.
 - Database được tạo bằng `Base.metadata.create_all()`, chưa có migration tool như Alembic.
-- SQLite mặc định phù hợp demo/local; production nên dùng Postgres và migration.
-- Rate limit và background thread đều là in-memory/process-local, không phù hợp scale nhiều instance nếu chưa thay bằng Redis/queue.
+- SQLite mặc định phù hợp demo/local; production nên dùng PostgreSQL và migration.
+- Rate limit và background thread đều là in-memory/process-local, chưa phù hợp scale nhiều instance.
 - PDF scan ảnh không có OCR nên sẽ không trích xuất được nội dung.
-- Một số text hiển thị trong frontend hiện đang bị lỗi encoding trong source, nên UI có thể hiện ký tự sai nếu chưa sửa file mã nguồn.
+- File source hiện có một số comment/string tiếng Việt bị lỗi encoding; README này đã được ghi lại bằng UTF-8 sạch.
 
 ## Tác Giả
 

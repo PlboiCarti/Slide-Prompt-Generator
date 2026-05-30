@@ -92,6 +92,7 @@ export interface HistoryItem {
   created_at: string
   updated_at: string
   purpose: string | null
+  audience: string | null
   has_result: boolean
   error_message: string | null
 }
@@ -100,6 +101,7 @@ export interface BinItem {
   id: string
   status: JobStatus
   purpose: string | null
+  audience: string | null
   has_result: boolean
   error_message: string | null
   deleted_at: string
@@ -179,7 +181,7 @@ export const draftAPI = {
 
 export const binAPI = {
   getBin: () => api.get<BinItem[]>('/bin'),
-  restore: (id: string) => api.post<BinItem>(`/bin/${id}/restore`),
+  restore: (id: string) => api.post<HistoryItem>(`/bin/${id}/restore`),
   hardDelete: (id: string) => api.delete(`/bin/${id}`),
   emptyBin: () => api.delete('/bin'),
 }
