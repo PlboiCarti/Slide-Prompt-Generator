@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 
 class JobStatus(str, Enum):
+    # Tập giá trị vòng đời job chuẩn được trả về qua job, history, bin và draft API.
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
@@ -35,6 +36,7 @@ class JobStatusResponse(BaseModel):
 
 
 class HistoryItemResponse(BaseModel):
+    """Bản ghi rút gọn hiển thị cho /history và item vừa khôi phục từ thùng rác."""
     id: str
     status: JobStatus
     created_at: datetime

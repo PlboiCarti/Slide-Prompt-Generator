@@ -16,6 +16,8 @@ HISTORY_VISIBLE_STATUSES = (
 
 
 def _extract_input_payload(job: Job) -> dict:
+    # Card history/bin chỉ cần vài field từ input_payload. Payload lỗi hoặc
+    # không phải object không nên làm hỏng API danh sách.
     try:
         payload = json.loads(job.input_payload or "{}")
     except (TypeError, json.JSONDecodeError):
@@ -24,6 +26,8 @@ def _extract_input_payload(job: Job) -> dict:
 
 
 def to_history_item(job: Job) -> HistoryItemResponse:
+    # Gom logic tạo response vào một chỗ để router không lặp việc parse payload
+    # và không trả trực tiếp field thô từ Job ORM.
     payload = _extract_input_payload(job)
     return HistoryItemResponse(
         id=str(job.id),
@@ -38,6 +42,7 @@ def to_history_item(job: Job) -> HistoryItemResponse:
 
 
 def to_bin_item(job: Job) -> BinItemResponse:
+    # Item trong thùng rác bắt buộc phải đã xóa mềm; job active thuộc /history.
     if job.deleted_at is None:
         raise ValueError("Bin item must have deleted_at")
 
@@ -55,6 +60,7 @@ def to_bin_item(job: Job) -> BinItemResponse:
 
 
 def get_owned_active_job(job_id: str, user: User, db: Session) -> Job:
+    # Tập trung kiểm tra quyền sở hữu và trạng thái active cho các thao tác history.
     job = (
         db.query(Job)
         .filter(
@@ -73,6 +79,7 @@ def get_owned_active_job(job_id: str, user: User, db: Session) -> Job:
 
 
 def get_owned_bin_job(job_id: str, user: User, db: Session) -> Job:
+    # Thao tác thùng rác không được vượt qua ranh giới user hoặc ảnh hưởng job active.
     job = (
         db.query(Job)
         .filter(
@@ -91,6 +98,7 @@ def get_owned_bin_job(job_id: str, user: User, db: Session) -> Job:
 
 
 def get_owned_draft(job_id: str, user: User, db: Session) -> Job:
+    # Draft endpoint chỉ được đọc/sửa draft active thuộc user đang gọi.
     job = (
         db.query(Job)
         .filter(

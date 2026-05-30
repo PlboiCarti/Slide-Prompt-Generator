@@ -30,6 +30,8 @@ def get_history(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # History chỉ hiện các job còn active, thuộc user hiện tại và có status phù hợp
+    # với danh sách người dùng thấy. Job đang chạy sẽ được theo dõi qua API poll.
     query = db.query(Job).filter(
         Job.user_id == current_user.id,
         Job.deleted_at.is_(None),
@@ -37,6 +39,7 @@ def get_history(
     )
 
     if status_filter:
+        # Chuẩn hóa status từ query string để chấp nhận cả draft và DRAFT.
         normalized_status = status_filter.upper()
         if normalized_status not in HISTORY_VISIBLE_STATUSES:
             raise HTTPException(
@@ -55,6 +58,7 @@ def soft_delete_history_item(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Xóa mềm giữ lại job và result_payload để có thể khôi phục từ /bin.
     job = get_owned_active_job(job_id, current_user, db)
     job.deleted_at = datetime.utcnow()
     db.commit()
@@ -71,6 +75,7 @@ def get_bin(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Thùng rác chỉ gồm các item đã xóa mềm và thuộc user hiện tại.
     jobs = (
         db.query(Job)
         .filter(Job.user_id == current_user.id, Job.deleted_at.isnot(None))
@@ -88,6 +93,7 @@ def restore_bin_item(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Khôi phục chỉ cần xóa deleted_at; status gốc của job được giữ nguyên.
     job = get_owned_bin_job(job_id, current_user, db)
     job.deleted_at = None
     db.commit()
@@ -102,6 +108,7 @@ def hard_delete_bin_item(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Xóa vĩnh viễn chỉ áp dụng cho item đã nằm trong thùng rác của user hiện tại.
     job = get_owned_bin_job(job_id, current_user, db)
     db.delete(job)
     db.commit()
@@ -113,6 +120,7 @@ def empty_bin(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Xóa hàng loạt được giới hạn theo user_id và deleted_at để không đụng vào history active.
     deleted_count = (
         db.query(Job)
         .filter(Job.user_id == current_user.id, Job.deleted_at.isnot(None))
