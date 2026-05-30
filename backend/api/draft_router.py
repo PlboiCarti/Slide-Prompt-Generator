@@ -72,10 +72,6 @@ def get_draft(
     # Dữ liệu form đã lưu nằm trong input_payload; endpoint này bung lại về schema
     # draft form cho frontend.
     job = get_owned_draft(job_id, current_user, db)
-    try:
-        return _load_draft_payload(job.input_payload)
-    except (TypeError, json.JSONDecodeError):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Dữ liệu bản nháp không hợp lệ.",
-        )
+
+    return _load_draft_payload(job.input_payload)
+
