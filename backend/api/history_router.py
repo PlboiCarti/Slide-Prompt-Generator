@@ -11,7 +11,7 @@ from models.user import User
 from schemas.bin import BinItemResponse
 from schemas.jobs import HistoryItemResponse
 from services.job_history_service import (
-    VISIBLE_STATUSES,
+    HISTORY_VISIBLE_STATUSES,
     get_owned_active_job,
     get_owned_bin_job,
     to_bin_item,
@@ -33,12 +33,12 @@ def get_history(
     query = db.query(Job).filter(
         Job.user_id == current_user.id,
         Job.deleted_at.is_(None),
-        Job.status.in_(VISIBLE_STATUSES),
+        Job.status.in_(HISTORY_VISIBLE_STATUSES),
     )
 
     if status_filter:
         normalized_status = status_filter.upper()
-        if normalized_status not in VISIBLE_STATUSES:
+        if normalized_status not in HISTORY_VISIBLE_STATUSES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Status filter không hợp lệ",
