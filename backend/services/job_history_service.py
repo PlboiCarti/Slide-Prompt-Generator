@@ -67,7 +67,7 @@ def get_owned_active_job(job_id: str, user: User, db: Session) -> Job:
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="History item not found",
+            detail="Không tìm thấy mục lịch sử.",
         )
     return job
 
@@ -85,7 +85,7 @@ def get_owned_bin_job(job_id: str, user: User, db: Session) -> Job:
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Bin item not found",
+            detail="Không tìm thấy mục trong thùng rác.",
         )
     return job
 
@@ -104,6 +104,6 @@ def get_owned_draft(job_id: str, user: User, db: Session) -> Job:
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Draft not found",
+            detail="Không tìm thấy bản nháp.",
         )
     return job

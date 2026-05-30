@@ -59,5 +59,5 @@ def get_draft(
     except (TypeError, json.JSONDecodeError):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Draft payload khong hop le",
+            detail="Dữ liệu bản nháp không hợp lệ.",
         )
