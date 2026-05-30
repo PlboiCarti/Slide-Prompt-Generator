@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 @router.get("/history", response_model=list[HistoryItemResponse])
 def get_history(
     status_filter: str | None = Query(None, alias="status"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -43,7 +45,7 @@ def get_history(
             )
         query = query.filter(Job.status == normalized_status)
 
-    jobs = query.order_by(Job.updated_at.desc()).all()
+    jobs = query.order_by(Job.updated_at.desc()).offset(offset).limit(limit).all()
     return [to_history_item(job) for job in jobs]
 
 
@@ -64,6 +66,8 @@ def soft_delete_history_item(
 
 @router.get("/bin", response_model=list[BinItemResponse])
 def get_bin(
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -71,6 +75,8 @@ def get_bin(
         db.query(Job)
         .filter(Job.user_id == current_user.id, Job.deleted_at.isnot(None))
         .order_by(Job.deleted_at.desc())
+        .offset(offset)
+        .limit(limit)
         .all()
     )
     return [to_bin_item(job) for job in jobs]
