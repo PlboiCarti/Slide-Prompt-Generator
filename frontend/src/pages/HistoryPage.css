@@ -95,6 +95,19 @@
   margin: 6px 0;
 }
 
+.history-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  align-items: center;
+  margin: 8px 0;
+  font-weight: 600;
+}
+
+.history-card-meta span {
+  min-width: 0;
+}
+
 .history-status {
   font-size: 12px;
   font-weight: 700;
@@ -107,7 +120,12 @@
 }
 
 .status-draft {
-  border-left-color: #7c3aed;
+  border-left-color: #f2c94c;
+  background: #fffaf0;
+}
+
+.history-card.status-draft .history-status {
+  color: #7a4f00;
 }
 
 .status-failed {

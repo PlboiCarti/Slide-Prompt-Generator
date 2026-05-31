@@ -39,12 +39,12 @@ export function HistoryPage() {
       try {
         if (activeTab === 'BIN') {
           const res = await binAPI.getBin()
-          setBinItems(res.data)
+          setBinItems(res.data.items)
           setItems([])
         } else {
           const filter = activeTab === 'ALL' ? undefined : activeTab
           const res = await historyAPI.getHistory(filter)
-          setItems(res.data)
+          setItems(res.data.items)
           setBinItems([])
         }
       } catch (err: any) {
@@ -137,8 +137,14 @@ export function HistoryPage() {
             <article key={item.id} className={`history-card status-${item.status.toLowerCase()}`}>
               <div>
                 <span className="history-status">{STATUS_LABELS[item.status] || item.status}</span>
-                <h2>Mục đích: {item.purpose || 'Không có thông tin'}</h2>
-                <p>Đối tượng: {item.audience || 'Không có thông tin'}</p>
+                <div className="history-card-meta">
+                  <span>
+                    <strong>Mục đích:</strong> {item.purpose || 'Không có thông tin'}
+                  </span>
+                  <span>
+                    <strong>Đối tượng:</strong> {item.audience || 'Không có thông tin'}
+                  </span>
+                </div>
                 <p>Cập nhật: {new Date(item.updated_at).toLocaleString()}</p>
                 {item.error_message && <p className="history-item-error">{item.error_message}</p>}
               </div>
@@ -162,8 +168,14 @@ export function HistoryPage() {
             <article key={item.id} className={`history-card status-${item.status.toLowerCase()}`}>
               <div>
                 <span className="history-status">{STATUS_LABELS[item.status] || item.status}</span>
-                <h2>Mục đích: {item.purpose || 'Không có thông tin'}</h2>
-                <p>Đối tượng: {item.audience || 'Không có thông tin'}</p>
+                <div className="history-card-meta">
+                  <span>
+                    <strong>Mục đích:</strong> {item.purpose || 'Không có thông tin'}
+                  </span>
+                  <span>
+                    <strong>Đối tượng:</strong> {item.audience || 'Không có thông tin'}
+                  </span>
+                </div>
                 <p>Đã xóa: {new Date(item.deleted_at).toLocaleString()}</p>
                 {item.error_message && <p className="history-item-error">{item.error_message}</p>}
               </div>
