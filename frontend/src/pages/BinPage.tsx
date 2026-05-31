@@ -15,7 +15,7 @@ export function BinPage() {
       setError('')
       try {
         const res = await binAPI.getBin()
-        setItems(res.data)
+        setItems(res.data.items)
       } catch (err: any) {
         setError(err.response?.data?.detail || 'Khong tai duoc thung rac')
       } finally {
