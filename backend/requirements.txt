@@ -30,3 +30,6 @@ httpx
 
 # Misc
 python-dotenv
+
+# HTTP Client
+httpx
