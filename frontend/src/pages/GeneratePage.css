@@ -334,6 +334,58 @@
   color: #6b7280;
 }
 
+/* File input list */
+.gen-file-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gen-file-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.gen-file-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
+}
+
+.gen-file-remove {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.gen-file-remove:hover:not(:disabled) {
+  background: #f3f4f6;
+  color: #ef4444;
+}
+
+.gen-file-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ── Phase 1 footer ──────────────────────────────── */
 .gen-phase1-footer {
   padding: 20px 24px 24px;

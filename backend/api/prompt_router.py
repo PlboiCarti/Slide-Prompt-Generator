@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
+from pathlib import Path
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -23,7 +25,6 @@ from models.job import Job
 from models.user import User
 from schemas.jobs import GenerateResponse, JobStatusResponse
 from schemas.prompt import DescribeRequest, DesignDescription
-from services.content_extractor import extract_content
 from services.llm_service import generate_design_description
 from utils.rate_limiter import generate_tracker
 from workers.pipeline_worker import run_pipeline_in_thread
@@ -111,7 +112,7 @@ async def generate(
     language: str      = Form("vi"),
     # ── Content / PDF ─────────────────────────────────────────────────
     content: str       = Form("", max_length=100_000),
-    pdf_file: UploadFile = File(None),
+    files: list[UploadFile] | None = File(None),
     # ── Description fields từ Phase 1 (5 field riêng lẻ) ─────────────
     # Tách thành field riêng để Swagger UI hiển thị rõ ràng, tránh lỗi
     # khi paste JSON string nhiều dòng vào form field.
@@ -145,11 +146,16 @@ async def generate(
             headers={"Retry-After": str(retry_after)},
         )
 
+    valid_files = []
+    if files:
+        valid_files = [f for f in files if f.filename]
+    has_valid_files = len(valid_files) > 0
+
     # Phải có ít nhất 1 trong 2
-    if not content.strip() and not pdf_file:
+    if not content.strip() and not has_valid_files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Phải cung cấp ít nhất một trong hai: nội dung văn bản (content) hoặc file PDF.",
+            detail="Phải cung cấp ít nhất một trong hai: nội dung văn bản (content) hoặc tải lên file.",
         )
 
     # Build description_dict từ 5 field riêng lẻ
@@ -180,12 +186,6 @@ async def generate(
     # Ghi nhận attempt SAU KHI validate xong — tránh hao slot vì lỗi form
     generate_tracker.record_failed_attempt(current_user.id)
 
-    # Gộp content từ text + PDF
-    final_content = await extract_content(
-        text_content=content or None,
-        pdf_file=pdf_file,
-    )
-
     payload = {
         "purpose":        purpose,
         "audience":       audience,
@@ -194,7 +194,7 @@ async def generate(
         "slide_count":    slide_count,
         "primary_layout": primary_layout,
         "language":       language,
-        "content":        final_content,
+        "content":        content,
         "description":    description_dict,  # dict (có thể rỗng)
     }
 
@@ -207,9 +207,22 @@ async def generate(
     db.commit()
     db.refresh(job)
 
+    job_id = str(job.id)
+    file_paths = []
+    if has_valid_files:
+        upload_dir = Path(f"uploads/{job_id}")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        for f in valid_files:
+            file_path = upload_dir / f.filename
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(f.file, buffer)
+            file_paths.append(str(file_path))
+            
+    payload["file_paths"] = file_paths
+
     logger.info(
-        f"Job created: {str(job.id)[:8]} | purpose='{purpose[:40]}' | "
-        f"has_description={bool(description_dict)} | has_content={bool(final_content.strip())}"
+        f"Job created: {job_id[:8]} | purpose='{purpose[:40]}' | "
+        f"has_description={bool(description_dict)} | files={len(file_paths)}"
     )
 
     # Chạy pipeline trong background thread (daemon)

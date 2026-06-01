@@ -172,6 +172,11 @@ PromptBuilder/
 ### Yêu cầu hệ thống
 - Python 3.11+
 - Node.js 18+
+- **Tesseract OCR**: Cần cài đặt trên OS (kèm data Tiếng Việt) để xử lý ảnh scan.
+  - Windows: Cài đặt và đảm bảo đường dẫn `C:\Program Files\Tesseract-OCR\tesseract.exe`.
+  (https://tesseractocr.org/)
+- **Poppler**: Cần thiết để xử lý PDF scan (`pdf2image`).
+  - Windows: Tải và giải nén thư mục bin vào `C:\poppler\bin`.
 
 ### Backend
 
