@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
+from pathlib import Path
 from datetime import datetime
 from threading import Thread
 
@@ -60,6 +62,7 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
     language       = payload.get("language", "vi")
     content        = payload.get("content", "")
     description_dict = payload.get("description", {})  # từ Phase 1, user đã chỉnh
+    file_paths     = payload.get("file_paths", [])
 
     # Mỗi thread mở session riêng — không share session từ request
     db: Session = SessionLocal()
@@ -67,6 +70,16 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
     try:
         _update_job(db, job_id, "PROCESSING")
         logger.info(f"[{job_id[:8]}] PROCESSING | purpose='{purpose[:40]}'")
+
+        from services.content_extractor import extract_content_from_files
+        if file_paths or content.strip():
+            try:
+                final_content = extract_content_from_files(content, file_paths)
+            except Exception as e:
+                logger.error(f"[{job_id[:8]}] Lỗi extract content: {e}")
+                raise ValueError(f"Lỗi đọc nội dung file: {e}")
+        else:
+            final_content = ""
 
         # ── Chuẩn bị DesignDescription ────────────────────────────────
         # Ưu tiên description từ Phase 1 (đã user chỉnh sửa).
@@ -97,11 +110,11 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
         )
 
         # ── B3: Ghép content vào từng slide ──────────────────────────
-        if content.strip():
+        if final_content.strip():
             logger.info(f"[{job_id[:8]}] B3: filling slide contents...")
             slides = fill_slide_contents(
                 slides=slides,
-                content=content,
+                content=final_content,
                 language=language,
                 design_description=design_description,
             )
@@ -127,6 +140,13 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
         logger.error(f"[{job_id[:8]}] FAILED: {exc}", exc_info=True)
         _update_job(db, job_id, "FAILED", error_message=str(exc))
     finally:
+        if file_paths:
+            try:
+                upload_dir = Path(f"uploads/{job_id}")
+                if upload_dir.exists():
+                    shutil.rmtree(upload_dir)
+            except Exception as e:
+                logger.error(f"Lỗi xóa thư mục tạm {job_id}: {e}")
         db.close()
 
 

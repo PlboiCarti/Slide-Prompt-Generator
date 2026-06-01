@@ -30,3 +30,8 @@ httpx
 
 # Misc
 python-dotenv
+
+# Local OCR
+pytesseract
+Pillow
+pdf2image

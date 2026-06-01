@@ -65,7 +65,7 @@ export interface GeneratePayload {
   primary_layout: string
   content: string
   language: string
-  pdf_file?: File
+  files?: File[]
   description?: DesignDescription  // từ Phase 1, user đã chỉnh
 }
 
@@ -145,8 +145,10 @@ export const promptAPI = {
     formData.append('primary_layout', data.primary_layout)
     formData.append('content', data.content)
     formData.append('language', data.language)
-    if (data.pdf_file) {
-      formData.append('pdf_file', data.pdf_file)
+    if (data.files && data.files.length > 0) {
+      data.files.forEach(file => {
+        formData.append('files', file)
+      })
     }
     // 5 field description riêng lẻ (tránh lỗi JSON string trong multipart)
     if (data.description) {
