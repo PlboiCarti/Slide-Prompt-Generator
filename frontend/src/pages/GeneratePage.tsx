@@ -89,6 +89,10 @@ const LAYOUT_OPTIONS = [
   },
 ]
 
+const SLIDE_MIN = 6
+const SLIDE_MAX = 30
+const SLIDE_PRESETS = [6, 7, 10, 15]
+
 const COLOR_PRESETS = [
   { name: 'Cyber Pink', value: '#d946ef' },
   { name: 'Neon Blue', value: '#22d3ee' },
@@ -227,15 +231,22 @@ export function GeneratePage() {
     }
   }, [jobStatus?.status])
 
+  const clampSlideCount = (value: number) => {
+    if (Number.isNaN(value)) return SLIDE_MIN
+    return Math.min(SLIDE_MAX, Math.max(SLIDE_MIN, value))
+  }
+
   const handleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target
-
-    updateFormField(
-      name as keyof typeof formData,
-      name === 'slide_count' ? parseInt(value) : value
-    )
+  
+    if (name === 'slide_count') {
+      updateFormField('slide_count', clampSlideCount(parseInt(value, 10)))
+      return
+    }
+  
+    updateFormField(name as keyof typeof formData, value)
   }
 
   const updateFormField = (name: keyof typeof formData, value: string | number) => {
@@ -605,7 +616,7 @@ const handleDescriptionChange =
               <div className="gen-field">
                 <label>Số slide</label>
                 <div className="gen-slide-pills">
-                  {[5, 7, 10, 15].map(count => (
+                  {SLIDE_PRESETS.map(count => (
                     <button
                       key={count}
                       type="button"
@@ -623,8 +634,9 @@ const handleDescriptionChange =
                   name="slide_count"
                   value={formData.slide_count}
                   onChange={handleInputChange}
-                  min="3"
-                  max="30"
+                  min={SLIDE_MIN}
+                  max={SLIDE_MAX}
+                  step={1}
                   disabled={isFormLocked}
                 />
               </div>
