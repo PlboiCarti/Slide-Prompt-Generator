@@ -1557,3 +1557,43 @@
       min-height: 120px;
     }
   }
+
+  /* ──────────────────────────────────────────────────────
+   Header navigation correction
+   Giữ header gọn: logo về landing, menu user chứa navigation
+   ────────────────────────────────────────────────────── */
+
+.gen-brand-link {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.gen-brand-link .gen-logo,
+.gen-brand-link .gen-brand-name {
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease,
+    filter 0.18s ease;
+}
+
+.gen-brand-link:hover .gen-logo {
+  transform: translateY(-1px);
+  filter: drop-shadow(0 0 18px rgba(217, 70, 239, 0.32));
+}
+
+.gen-brand-link:hover .gen-brand-name {
+  opacity: 0.86;
+}
+
+.gen-user-menu button.danger {
+  color: #fecdd3;
+}
+
+.gen-user-menu button.danger:hover {
+  background: rgba(127, 29, 29, 0.28);
+  color: #fff1f2;
+}

@@ -389,25 +389,48 @@ export function GeneratePage() {
       {/* ── Header ──────────────────────────────────────── */}
       <header className="gen-header">
         <div className="gen-header-inner">
-          <div className="gen-brand">
+          <button
+            type="button"
+            className="gen-brand gen-brand-link"
+            onClick={() => navigate('/')}
+          >
             <div className="gen-logo">PB</div>
-            <span className="gen-brand-name">Prompt Builder</span>
-          </div>
+            <span className="gen-brand-name">Slide Prompt Builder</span>
+          </button>
 
           <div className="gen-user" onClick={() => setShowUserMenu(v => !v)}>
             <div className="gen-avatar">{user?.email?.[0]?.toUpperCase() || 'U'}</div>
             <span className="gen-user-email">{user?.email}</span>
+
             <svg
               className={`gen-chevron ${showUserMenu ? 'open' : ''}`}
-              width="12" height="12" viewBox="0 0 12 12"
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
             >
-              <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none"
-                strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M2 4l4 4 4-4"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
+
             {showUserMenu && (
               <div className="gen-user-menu" onClick={e => e.stopPropagation()}>
-                <button onClick={() => navigate('/history')}>Lịch sử Prompt</button>
-                <button onClick={handleLogout}>Đăng xuất</button>
+                <button type="button" onClick={() => navigate('/')}>
+                  Trang chủ
+                </button>
+
+                <button type="button" onClick={() => navigate('/history')}>
+                  Lịch sử Prompt
+                </button>
+
+                <button type="button" className="danger" onClick={handleLogout}>
+                  Đăng xuất
+                </button>
               </div>
             )}
           </div>
