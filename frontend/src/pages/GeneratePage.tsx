@@ -270,7 +270,7 @@ const handleDescriptionChange =
   const handleSaveDraft = async () => {
     setDraftMessage('')
     if (formData.purpose.trim().length < 3 || formData.audience.trim().length < 3) {
-      setDraftMessage('Can nhap muc dich va doi tuong truoc khi luu nhap')
+      setDraftMessage('Cần nhập mục đích và đối tượng trước khi lưu Draft')
       return
     }
 
@@ -283,14 +283,14 @@ const handleDescriptionChange =
     try {
       if (currentDraftId) {
         await draftAPI.updateDraft(currentDraftId, payload)
-        setDraftMessage('Da cap nhat nhap')
+        setDraftMessage('Đã cập nhật nháp')
       } else {
         const res = await draftAPI.saveDraft(payload)
         setCurrentDraftId(res.data.id)
-        setDraftMessage('Da luu nhap')
+        setDraftMessage('Đã lưu nháp')
       }
     } catch (err: any) {
-      setDraftMessage(err.response?.data?.detail || 'Luu nhap that bai')
+      setDraftMessage(err.response?.data?.detail || 'Lưu nháp thất bại')
     } finally {
       setIsDraftSaving(false)
     }
