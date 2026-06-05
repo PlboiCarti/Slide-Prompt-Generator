@@ -102,9 +102,26 @@ export function HistoryPage() {
           <p>Xem lại prompt đã tạo, bản nháp, lần tạo thất bại và các mục trong thùng rác.</p>
         </div>
         <div className="history-actions">
-          <button onClick={() => navigate('/generate')}>Tạo prompt mới</button>
+          <button
+            type="button"
+            className="history-secondary"
+            onClick={() => navigate('/')}
+          >
+            Trang chủ
+          </button>
+
+          <button
+            type="button"
+            className="history-primary"
+            onClick={() => navigate('/generate')}
+          >
+            + Tạo prompt mới
+          </button>
+
           {isBinTab && binItems.length > 0 && (
-            <button className="danger" onClick={handleEmptyBin}>Dọn sạch thùng rác</button>
+            <button type="button" className="danger" onClick={handleEmptyBin}>
+              Dọn sạch thùng rác
+            </button>
           )}
         </div>
       </header>
