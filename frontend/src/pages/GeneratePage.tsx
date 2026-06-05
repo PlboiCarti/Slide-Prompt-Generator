@@ -6,22 +6,95 @@ import './GeneratePage.css'
 
 // Phải khớp với backend
 const STYLE_OPTIONS = [
-  { value: 'minimalist', label: 'Minimalist' },
-  { value: 'modern', label: 'Modern' },
-  { value: 'storytelling', label: 'Storytelling' },
-  { value: 'academic', label: 'Academic' },
-  { value: 'corporate', label: 'Corporate' },
-  { value: 'creative', label: 'Creative' },
-  { value: 'technical', label: 'Technical' },
+  {
+    value: 'minimalist',
+    label: 'Minimalist',
+    icon: '◇',
+    desc: 'Ít chữ, nhiều khoảng trống, sạch và dễ đọc.',
+  },
+  {
+    value: 'modern',
+    label: 'Modern',
+    icon: '✦',
+    desc: 'Hiện đại, cân bằng giữa chuyên nghiệp và nổi bật.',
+  },
+  {
+    value: 'storytelling',
+    label: 'Storytelling',
+    icon: '⌁',
+    desc: 'Dẫn dắt theo câu chuyện, phù hợp thuyết trình truyền cảm hứng.',
+  },
+  {
+    value: 'academic',
+    label: 'Academic',
+    icon: '▤',
+    desc: 'Rõ ràng, logic, phù hợp bài học hoặc báo cáo học thuật.',
+  },
+  {
+    value: 'corporate',
+    label: 'Corporate',
+    icon: '▣',
+    desc: 'Trang trọng, gọn, phù hợp báo cáo công việc và doanh nghiệp.',
+  },
+  {
+    value: 'creative',
+    label: 'Creative',
+    icon: '✺',
+    desc: 'Nhiều hình ảnh, màu sắc, phù hợp ý tưởng và chiến dịch.',
+  },
+  {
+    value: 'technical',
+    label: 'Technical',
+    icon: '⌬',
+    desc: 'Tập trung hệ thống, quy trình, số liệu và kiến trúc.',
+  },
 ]
 
 const LAYOUT_OPTIONS = [
-  { value: 'key_message', label: 'Key Message' },
-  { value: 'split', label: 'Split' },
-  { value: 'gridcards', label: 'Grid Cards' },
-  { value: 'timeline', label: 'Timeline' },
-  { value: 'bigstat_impact', label: 'Big Stat' },
-  { value: 'full_image_text_overlay', label: 'Image Overlay' },
+  {
+    value: 'key_message',
+    label: 'Key Message',
+    icon: '▰',
+    desc: 'Mỗi slide có một thông điệp chính thật rõ.',
+  },
+  {
+    value: 'split',
+    label: 'Split',
+    icon: '◧',
+    desc: 'Chia 2 cột: nội dung và hình ảnh / biểu đồ.',
+  },
+  {
+    value: 'gridcards',
+    label: 'Grid Cards',
+    icon: '▦',
+    desc: 'Nhiều ý nhỏ trình bày dạng card gọn gàng.',
+  },
+  {
+    value: 'timeline',
+    label: 'Timeline',
+    icon: '━━',
+    desc: 'Phù hợp tiến trình, lịch sử, roadmap, quy trình.',
+  },
+  {
+    value: 'bigstat_impact',
+    label: 'Big Stat',
+    icon: '99',
+    desc: 'Nhấn mạnh số liệu lớn, KPI hoặc insight quan trọng.',
+  },
+  {
+    value: 'full_image_text_overlay',
+    label: 'Image Overlay',
+    icon: '◩',
+    desc: 'Ảnh lớn làm nền, chữ phủ lên tạo cảm giác cinematic.',
+  },
+]
+
+const COLOR_PRESETS = [
+  { name: 'Cyber Pink', value: '#d946ef' },
+  { name: 'Neon Blue', value: '#22d3ee' },
+  { name: 'Violet', value: '#7c3aed' },
+  { name: 'Emerald', value: '#22c55e' },
+  { name: 'Amber', value: '#facc15' },
 ]
 
 const STATUS_LABELS: Record<string, string> = {
@@ -158,11 +231,19 @@ export function GeneratePage() {
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target
+
+    updateFormField(
+      name as keyof typeof formData,
+      name === 'slide_count' ? parseInt(value) : value
+    )
+  }
+
+  const updateFormField = (name: keyof typeof formData, value: string | number) => {
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'slide_count' ? parseInt(value) : value,
+      [name]: value,
     }))
-    // Nếu user thay đổi field ảnh hưởng đến Phase 1 → reset description
+
     if (['purpose', 'audience', 'style', 'primary_layout', 'primary_color', 'language'].includes(name)) {
       setDescription(null)
       setDescError('')
@@ -335,104 +416,244 @@ export function GeneratePage() {
 
       {/* ── Main ────────────────────────────────────────── */}
       <main className="gen-main">
-        <div className="gen-intro">
-          <h1>Tạo Master Prompt</h1>
-          <p>
-            Điền thông tin về bài thuyết trình. AI sẽ gợi ý thiết kế để bạn xem
-            và chỉnh, sau đó sinh Master Prompt để copy vào ChatGPT, Claude hoặc Gemini.
-          </p>
-        </div>
-
-        {/* ── Bước 1 & 2: Form thông tin cơ bản ─────────── */}
-        <div className="gen-form">
-          <div className="gen-form-toolbar">
-            {draftMessage && <span className="gen-draft-message">{draftMessage}</span>}
-            <button
-              type="button"
-              className="gen-draft-btn"
-              onClick={handleSaveDraft}
-              disabled={isDraftSaving || isFormLocked}
-            >
-              {isDraftSaving ? 'Đang lưu...' : currentDraftId ? 'Cập nhật Draft' : 'Lưu Draft'}
-            </button>
+        <section className="gen-builder-hero">
+          <div className="gen-kicker">
+            <span className="gen-kicker-dot" />
+            AI Presentation Prompt Console
           </div>
 
-          {/* Section 1: Thông tin cơ bản */}
+          <h1>
+            Build your{' '}
+            <span className="gen-gradient-pink">Master Prompt</span>
+            <br />
+            for stunning slides.
+          </h1>
+
+          <p>
+            Điền brief, chọn vibe thiết kế, để AI phân tích hướng trình bày rồi sinh
+            một Master Prompt hoàn chỉnh cho PowerPoint, Marp hoặc slide deck.
+          </p>
+
+          <div className="gen-stepper">
+            <div className={`gen-step ${formData.purpose && formData.audience ? 'done' : 'active'}`}>
+              <span>1</span>
+              <strong>Brief</strong>
+            </div>
+            <div className={`gen-step ${description ? 'done' : formData.purpose && formData.audience ? 'active' : ''}`}>
+              <span>2</span>
+              <strong>AI Design</strong>
+            </div>
+            <div className={`gen-step ${description ? 'active' : ''}`}>
+              <span>3</span>
+              <strong>Content</strong>
+            </div>
+            <div className={`gen-step ${status === 'COMPLETED' ? 'done active' : ''}`}>
+              <span>4</span>
+              <strong>Result</strong>
+            </div>
+          </div>
+        </section>
+
+        {/* Builder Console */}
+        <div className="gen-form gen-console">
+          <div className="gen-console-topbar">
+            <div className="gen-window-dots">
+              <span />
+              <span />
+              <span />
+            </div>
+            <span className="gen-console-title">builder.config.tsx</span>
+
+            <div className="gen-form-toolbar">
+              {draftMessage && <span className="gen-draft-message">{draftMessage}</span>}
+              <button
+                type="button"
+                className="gen-draft-btn"
+                onClick={handleSaveDraft}
+                disabled={isDraftSaving || isFormLocked}
+              >
+                {isDraftSaving ? 'Đang lưu...' : currentDraftId ? 'Cập nhật Draft' : 'Lưu Draft'}
+              </button>
+            </div>
+          </div>
+
           <section className="gen-section">
-            <h2 className="gen-section-title">
-              <span className="gen-section-num">1</span>
-              Thông tin cơ bản
-            </h2>
+            <div className="gen-section-heading">
+              <h2 className="gen-section-title">
+                <span className="gen-section-num">1</span>
+                Project Brief
+              </h2>
+              <p>Nói cho AI biết bài thuyết trình dùng để làm gì và người xem là ai.</p>
+            </div>
+
             <div className="gen-field-grid">
               <div className="gen-field">
                 <label>Mục đích</label>
                 <input
-                  type="text" name="purpose" value={formData.purpose}
+                  type="text"
+                  name="purpose"
+                  value={formData.purpose}
                   onChange={handleInputChange}
                   placeholder="Vd: Báo cáo doanh số Q1"
-                  minLength={3} disabled={isFormLocked}
+                  minLength={3}
+                  disabled={isFormLocked}
                 />
               </div>
+
               <div className="gen-field">
                 <label>Đối tượng</label>
                 <input
-                  type="text" name="audience" value={formData.audience}
+                  type="text"
+                  name="audience"
+                  value={formData.audience}
                   onChange={handleInputChange}
                   placeholder="Vd: Ban lãnh đạo công ty"
-                  minLength={3} disabled={isFormLocked}
+                  minLength={3}
+                  disabled={isFormLocked}
                 />
               </div>
             </div>
           </section>
 
-          {/* Section 2: Thiết kế */}
           <section className="gen-section">
-            <h2 className="gen-section-title">
-              <span className="gen-section-num">2</span>
-              Thiết kế slide
-            </h2>
-            <div className="gen-field-grid gen-field-grid-4">
-              <div className="gen-field">
-                <label>Phong cách</label>
-                <select name="style" value={formData.style} onChange={handleInputChange} disabled={isFormLocked}>
-                  {STYLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+            <div className="gen-section-heading">
+              <h2 className="gen-section-title">
+                <span className="gen-section-num">2</span>
+                Visual Direction
+              </h2>
+              <p>Chọn phong cách, layout, số slide và màu chủ đạo cho slide deck.</p>
+            </div>
+
+            <div className="gen-subsection">
+              <div className="gen-subsection-title">
+                <span>01</span>
+                <strong>Phong cách</strong>
               </div>
-              <div className="gen-field">
-                <label>Bố cục chính</label>
-                <select name="primary_layout" value={formData.primary_layout} onChange={handleInputChange} disabled={isFormLocked}>
-                  {LAYOUT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+
+              <div className="gen-option-grid gen-option-grid-style">
+                {STYLE_OPTIONS.map(option => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    disabled={isFormLocked}
+                    onClick={() => updateFormField('style', option.value)}
+                    className={`gen-option-card ${formData.style === option.value ? 'active' : ''}`}
+                  >
+                    <span className="gen-option-icon">{option.icon}</span>
+                    <strong>{option.label}</strong>
+                    <small>{option.desc}</small>
+                  </button>
+                ))}
               </div>
+            </div>
+
+            <div className="gen-subsection">
+              <div className="gen-subsection-title">
+                <span>02</span>
+                <strong>Bố cục chính</strong>
+              </div>
+
+              <div className="gen-option-grid gen-option-grid-layout">
+                {LAYOUT_OPTIONS.map(option => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    disabled={isFormLocked}
+                    onClick={() => updateFormField('primary_layout', option.value)}
+                    className={`gen-option-card gen-layout-card ${formData.primary_layout === option.value ? 'active' : ''}`}
+                  >
+                    <span className="gen-option-icon">{option.icon}</span>
+                    <strong>{option.label}</strong>
+                    <small>{option.desc}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="gen-control-grid">
               <div className="gen-field">
                 <label>Số slide</label>
+                <div className="gen-slide-pills">
+                  {[5, 7, 10, 15].map(count => (
+                    <button
+                      key={count}
+                      type="button"
+                      disabled={isFormLocked}
+                      onClick={() => updateFormField('slide_count', count)}
+                      className={formData.slide_count === count ? 'active' : ''}
+                    >
+                      {count}
+                    </button>
+                  ))}
+                </div>
+
                 <input
-                  type="number" name="slide_count" value={formData.slide_count}
-                  onChange={handleInputChange} min="3" max="30" disabled={isFormLocked}
+                  type="number"
+                  name="slide_count"
+                  value={formData.slide_count}
+                  onChange={handleInputChange}
+                  min="3"
+                  max="30"
+                  disabled={isFormLocked}
                 />
               </div>
+
               <div className="gen-field">
                 <label>Ngôn ngữ</label>
-                <select name="language" value={formData.language} onChange={handleInputChange} disabled={isFormLocked}>
-                  <option value="vi">Tiếng Việt</option>
-                  <option value="en">English</option>
-                </select>
+                <div className="gen-language-toggle">
+                  <button
+                    type="button"
+                    disabled={isFormLocked}
+                    onClick={() => updateFormField('language', 'vi')}
+                    className={formData.language === 'vi' ? 'active' : ''}
+                  >
+                    Tiếng Việt
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isFormLocked}
+                    onClick={() => updateFormField('language', 'en')}
+                    className={formData.language === 'en' ? 'active' : ''}
+                  >
+                    English
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className="gen-field gen-field-color">
-              <label>Màu chủ đạo</label>
-              <div className="gen-color-row">
-                <input type="color" name="primary_color" value={formData.primary_color}
-                  onChange={handleInputChange} disabled={isFormLocked} />
-                <span className="gen-color-hex">{formData.primary_color}</span>
+
+              <div className="gen-field gen-field-color">
+                <label>Màu chủ đạo</label>
+                <div className="gen-color-presets">
+                  {COLOR_PRESETS.map(color => (
+                    <button
+                      key={color.value}
+                      type="button"
+                      disabled={isFormLocked}
+                      title={color.name}
+                      onClick={() => updateFormField('primary_color', color.value)}
+                      className={formData.primary_color === color.value ? 'active' : ''}
+                      style={{ '--preset-color': color.value } as React.CSSProperties}
+                    />
+                  ))}
+                </div>
+
+                <div className="gen-color-row">
+                  <input
+                    type="color"
+                    name="primary_color"
+                    value={formData.primary_color}
+                    onChange={handleInputChange}
+                    disabled={isFormLocked}
+                  />
+                  <span className="gen-color-hex">{formData.primary_color}</span>
+                </div>
               </div>
             </div>
           </section>
 
-          {/* ── Nút Phase 1 (hiện khi chưa có description) ── */}
           {!description && (
             <div className="gen-phase1-footer">
               {descError && <p className="gen-desc-error">{descError}</p>}
+
               <button
                 type="button"
                 onClick={handleAnalyze}
@@ -440,24 +661,30 @@ export function GeneratePage() {
                 className="gen-analyze-btn"
               >
                 {isAnalyzing ? (
-                  <><span className="gen-btn-spinner" />Đang phân tích thiết kế...</>
+                  <>
+                    <span className="gen-btn-spinner" />
+                    Đang phân tích thiết kế...
+                  </>
                 ) : (
-                  <>✦ Phân tích thiết kế</>
+                  <>✦ Analyze Design Direction</>
                 )}
               </button>
+
               <p className="gen-phase1-hint">
-                AI sẽ gợi ý tone, font và phong cách dựa trên thông tin bạn nhập (~3–5 giây)
+                AI sẽ gợi ý tone, font, mật độ nội dung và hướng hình ảnh trước khi sinh Master Prompt.
               </p>
             </div>
           )}
 
-          {/* ── Nút "Phân tích lại" khi đã có description ── */}
           {description && !isRunning && (
             <div className="gen-reanalyze-row">
               <button
                 type="button"
                 className="gen-reanalyze-btn"
-                onClick={() => { setDescription(null); setDescError('') }}
+                onClick={() => {
+                  setDescription(null)
+                  setDescError('')
+                }}
               >
                 ↩ Thay đổi thiết kế
               </button>
@@ -465,14 +692,12 @@ export function GeneratePage() {
           )}
         </div>
 
-        {/* ── Bước 3: Kết quả Phase 1 — Design Description ─ */}
         {description && (
           <div ref={descRef} className="gen-desc-panel">
             <div className="gen-desc-header">
-              <span className="gen-desc-badge">✦ Gợi ý thiết kế từ AI</span>
+              <span className="gen-desc-badge">✦ AI Design Direction</span>
               <p className="gen-desc-subtitle">
-                Chỉnh sửa các ô bên dưới nếu muốn, rồi điền nội dung và nhấn{' '}
-                <strong>Sinh Master Prompt</strong>.
+                Đây là brief thiết kế AI đề xuất. Bạn có thể chỉnh trực tiếp trước khi sinh Master Prompt.
               </p>
             </div>
 
@@ -495,22 +720,38 @@ export function GeneratePage() {
           </div>
         )}
 
-        {/* ── Bước 4: Nội dung nguồn + Nút Phase 2 ─────────── */}
         {description && (
           <form onSubmit={handleSubmit} className="gen-form gen-content-form">
+            <div className="gen-console-topbar">
+              <div className="gen-window-dots">
+                <span />
+                <span />
+                <span />
+              </div>
+              <span className="gen-console-title">content.input</span>
+            </div>
+
             <section className="gen-section">
-              <h2 className="gen-section-title">
-                <span className="gen-section-num">3</span>
-                Nội dung nguồn
-              </h2>
+              <div className="gen-section-heading">
+                <h2 className="gen-section-title">
+                  <span className="gen-section-num">3</span>
+                  Source Content
+                </h2>
+                <p>Dán nội dung hoặc tải PDF. Backend vẫn nhận đúng `content` hoặc `pdf_file` như cũ.</p>
+              </div>
+
               <div className="gen-field">
                 <label>Nội dung text</label>
                 <textarea
-                  name="content" value={formData.content} onChange={handleInputChange}
+                  name="content"
+                  value={formData.content}
+                  onChange={handleInputChange}
                   placeholder="Dán nội dung bạn muốn chuyển thành slide..."
-                  rows={6} disabled={isRunning}
+                  rows={8}
+                  disabled={isRunning}
                 />
               </div>
+
               <div className="gen-field">
                 <label>Hoặc tải PDF</label>
                 <label className="gen-file-input">
@@ -524,27 +765,25 @@ export function GeneratePage() {
               <div className="gen-submit-error">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                   <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M8 5v4M8 11v.5" stroke="currentColor" strokeWidth="1.5"
-                    strokeLinecap="round" />
+                  <path d="M8 5v4M8 11v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
                 <span>{submitError}</span>
               </div>
             )}
 
             <button type="submit" disabled={isRunning} className="gen-submit">
-              {isRunning ? 'Đang xử lý...' : '🚀 Sinh Master Prompt'}
+              {isRunning ? 'Đang xử lý...' : '🚀 Generate Master Prompt'}
             </button>
           </form>
         )}
 
-        {/* ── Kết quả / Trạng thái ───────────────────────── */}
         {(isRunning || jobStatus) && (
           <div ref={resultRef} className="gen-result-area">
             {isRunning && (
               <div className="gen-status-card">
                 <div className="gen-spinner" />
                 <h3>{STATUS_LABELS[status || 'PENDING']}</h3>
-                <p className="gen-status-hint">Quá trình có thể mất 30–60 giây.</p>
+                <p className="gen-status-hint">AI đang dựng cấu trúc slide và assemble Master Prompt.</p>
               </div>
             )}
 
@@ -565,24 +804,9 @@ export function GeneratePage() {
                       {jobStatus.result.total_slides} slide · {formData.language === 'vi' ? 'Tiếng Việt' : 'English'}
                     </p>
                   </div>
+
                   <button onClick={handleCopy} className={`gen-copy-btn ${copied ? 'copied' : ''}`}>
-                    {copied ? (
-                      <>
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                          <path d="M3 8l3 3 7-7" stroke="currentColor" strokeWidth="2"
-                            strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        Đã copy
-                      </>
-                    ) : (
-                      <>
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                          <rect x="5" y="5" width="8" height="9" rx="1" stroke="currentColor" strokeWidth="1.5" />
-                          <path d="M3 11V3a1 1 0 011-1h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                        </svg>
-                        Copy
-                      </>
-                    )}
+                    {copied ? '✓ Đã copy' : 'Copy Prompt'}
                   </button>
                 </div>
 
@@ -590,7 +814,7 @@ export function GeneratePage() {
 
                 <div className="gen-result-footer">
                   <p className="gen-result-hint">
-                    Dán prompt này vào ChatGPT, Claude, hoặc Gemini để tạo slide PowerPoint hoàn chỉnh.
+                    Dán prompt này vào ChatGPT, Claude hoặc Gemini để tạo slide PowerPoint hoàn chỉnh.
                   </p>
                   <button onClick={handleReset} className="gen-btn-secondary">Tạo prompt mới</button>
                 </div>
