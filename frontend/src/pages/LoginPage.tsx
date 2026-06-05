@@ -10,11 +10,11 @@ export function LoginPage() {
   const [error, setError] = useState('')
   const [successBanner, setSuccessBanner] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
   const { login } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // Đọc query param khi mount (sau khi backend redirect)
   useEffect(() => {
     const verified = searchParams.get('verified')
     const errorMsg = searchParams.get('error')
@@ -28,7 +28,6 @@ export function LoginPage() {
       setError(errorMsg)
     }
 
-    // Xóa query params khỏi URL sau khi đọc xong
     if (verified || errorMsg) {
       setSearchParams({}, { replace: true })
     }
@@ -56,47 +55,89 @@ export function LoginPage() {
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
-        <h1>Đăng nhập</h1>
+      <div className="auth-glow auth-glow-pink" />
+      <div className="auth-glow auth-glow-blue" />
 
-        {successBanner && <div className="success-message">{successBanner}</div>}
-        {error && <div className="error-message">{error}</div>}
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Mật khẩu</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          <button type="submit" disabled={isLoading} className="btn-primary">
-            {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+      <div className="auth-shell">
+        <section className="auth-side-panel">
+          <button className="auth-brand" onClick={() => navigate('/')}>
+            <span className="auth-brand-logo">PB</span>
+            <span>Slide Prompt Builder</span>
           </button>
-        </form>
 
-        <div className="divider">hoặc</div>
+          <div className="auth-side-content">
+            <span className="auth-kicker">AI Prompt Workflow</span>
+            <h2>
+              Welcome back to your
+              <span> cyber slide console.</span>
+            </h2>
+            <p>
+              Đăng nhập để tiếp tục tạo Master Prompt, phân tích hướng thiết kế
+              và sinh cấu trúc slide bằng AI.
+            </p>
+          </div>
 
-        <button onClick={handleGoogleLogin} className="btn-google">
-          Đăng nhập bằng Google
-        </button>
+          <div className="auth-side-stats">
+            <div>
+              <strong>2 Phase</strong>
+              <span>Design + Prompt</span>
+            </div>
+            <div>
+              <strong>AI Ready</strong>
+              <span>Gemini pipeline</span>
+            </div>
+          </div>
+        </section>
 
-        <p className="auth-link">
-          Chưa có tài khoản? <Link to="/register">Đăng ký</Link>
-        </p>
+        <section className="auth-card">
+          <div className="auth-card-header">
+            <span className="auth-card-badge">Secure Login</span>
+            <h1>Đăng nhập</h1>
+            <p>Truy cập Prompt Builder console của bạn.</p>
+          </div>
+
+          {successBanner && <div className="success-message">{successBanner}</div>}
+          {error && <div className="error-message">{error}</div>}
+
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label>Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Mật khẩu</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+
+            <button type="submit" disabled={isLoading} className="btn-primary">
+              {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            </button>
+          </form>
+
+          <div className="divider">hoặc</div>
+
+          <button onClick={handleGoogleLogin} className="btn-google">
+            <span className="google-dot">G</span>
+            Đăng nhập bằng Google
+          </button>
+
+          <p className="auth-link">
+            Chưa có tài khoản? <Link to="/register">Đăng ký</Link>
+          </p>
+        </section>
       </div>
     </div>
   )
