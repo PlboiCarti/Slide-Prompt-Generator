@@ -171,25 +171,42 @@
   
   .landing-hero h1 {
     margin: 0;
-    font-size: clamp(48px, 8vw, 86px);
-    line-height: 0.96;
+    /* Hạ nhẹ max-size từ 74px xuống 64px và 7vw xuống 5.8vw để text có đủ không gian đứng thẳng hàng */
+    font-size: clamp(36px, 5.8vw, 64px); 
+    line-height: 1.3;
     font-weight: 900;
-    letter-spacing: -0.07em;
-    color: white;
+    letter-spacing: -0.01em;
+    text-align: center;
+  
+    background: linear-gradient(91deg, #FF1CF7 2.26%, #00F0FF 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
   
-  .gradient-pink {
-    background: linear-gradient(135deg, #d946ef 0%, #7c3aed 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  /* THÊM ĐOẠN CSS MỚI NÀY VÀO PHÍA DƯỚI */
+  .hero-line {
+    display: block;       /* Ép mỗi câu làm một dòng riêng biệt */
+    white-space: nowrap;  /* KHÓA CHẾT: Tuyệt đối không cho phép bất kỳ chữ nào được tự ý rớt dòng */
   }
   
-  .gradient-blue {
-    background: linear-gradient(135deg, #22d3ee 0%, #2563eb 100%);
-    -webkit-background-clip: text;
+  /* Đảm bảo trên điện thoại màn hình nhỏ không bị tràn viền */
+  @media (max-width: 600px) {
+    .hero-line {
+      white-space: normal; /* Trở lại bình thường khi ở màn hình mobile siêu nhỏ */
+    }
+  }
+  
+  .gradient-text {
+    background: linear-gradient(91deg, #FF1CF7 2.26%, #00F0FF 100%);
     background-clip: text;
-    color: transparent;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline;           /* ĐỔI THÀNH inline (bỏ inline-block) giúp text xuống dòng mượt hơn */
+    
+    /* Thêm 2 dòng dưới này để dải màu gradient không bị lỗi đứt đoạn khi text xuống hàng */
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
   }
   
   .landing-hero-desc {
@@ -232,16 +249,16 @@
   .landing-btn-primary {
     border: 0;
     color: white;
-    background: linear-gradient(135deg, #d946ef 0%, #7c3aed 100%);
+    background: linear-gradient(91deg, #FF1CF7 2.26%, #00F0FF 100%);
     box-shadow:
-      0 0 34px rgba(217, 70, 239, 0.28),
-      0 14px 36px rgba(124, 58, 237, 0.28);
+      0 0 34px rgba(255, 28, 247, 0.25),
+      0 14px 36px rgba(0, 240, 255, 0.25);
   }
   
   .landing-btn-primary:hover {
     box-shadow:
-      0 0 44px rgba(217, 70, 239, 0.42),
-      0 18px 44px rgba(124, 58, 237, 0.36);
+      0 0 44px rgba(255, 28, 247, 0.35),
+      0 18px 44px rgba(0, 240, 255, 0.35);
   }
   
   .landing-btn-secondary {
@@ -251,8 +268,8 @@
   }
   
   .landing-btn-secondary:hover {
-    border-color: #06b6d4;
-    box-shadow: 0 0 28px rgba(6, 182, 212, 0.22);
+    border-color: #00F0FF;
+    box-shadow: 0 0 28px rgba(0, 240, 255, 0.22);
   }
   
   /* Sections */
@@ -271,7 +288,7 @@
   
   .landing-section-heading {
     max-width: 720px;
-    margin: 0 auto 34px;
+    margin: 0 auto 42px;
     text-align: center;
   }
   
@@ -282,15 +299,17 @@
     font-weight: 800;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: #22d3ee;
+    color: #00F0FF;
   }
   
   .landing-section-heading h2 {
     margin: 0;
-    font-size: clamp(30px, 4vw, 46px);
-    line-height: 1.05;
+    font-size: clamp(30px, 4vw, 42px);
+    line-height: 1.25;
     font-weight: 850;
-    letter-spacing: -0.045em;
+    letter-spacing: -0.01em;   /* Giảm bớt độ khít chữ (đổi từ -0.035em về -0.01em) */
+    
+    text-wrap: balance;        /* THẦN CHÚ: Ép trình duyệt tự tính toán ngắt dòng thông minh, tuyệt đối không để rớt lẻ loi 1 chữ hoặc bẻ đôi từ ghép */
   }
   
   .landing-section-heading p {
@@ -307,8 +326,8 @@
     border-radius: 28px;
     border: 1px solid #27272a;
     background:
-      radial-gradient(circle at 0% 0%, rgba(217, 70, 239, 0.15), transparent 38%),
-      radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.12), transparent 34%),
+      radial-gradient(circle at 0% 0%, rgba(255, 28, 247, 0.12), transparent 38%),
+      radial-gradient(circle at 100% 0%, rgba(0, 240, 255, 0.1), transparent 34%),
       #09090b;
     box-shadow:
       0 30px 90px rgba(0, 0, 0, 0.52),
@@ -409,8 +428,8 @@
   
   .landing-chip.active {
     color: white;
-    border-color: rgba(34, 211, 238, 0.62);
-    box-shadow: 0 0 22px rgba(34, 211, 238, 0.12);
+    border-color: rgba(0, 240, 255, 0.62);
+    box-shadow: 0 0 22px rgba(0, 240, 255, 0.12);
   }
   
   .landing-demo-mini-grid {
@@ -454,10 +473,10 @@
   }
   
   .landing-demo-right pre::selection {
-    background: rgba(34, 211, 238, 0.26);
+    background: rgba(0, 240, 255, 0.26);
   }
   
-  /* Bento */
+  /* Bento Grid - Sửa đổi để cân đối phần cuối */
   
   .landing-bento {
     display: grid;
@@ -487,8 +506,8 @@
     inset: 0;
     opacity: 0;
     background:
-      radial-gradient(circle at 50% 0%, rgba(217, 70, 239, 0.18), transparent 42%),
-      radial-gradient(circle at 100% 100%, rgba(34, 211, 238, 0.12), transparent 38%);
+      radial-gradient(circle at 50% 0%, rgba(255, 28, 247, 0.15), transparent 42%),
+      radial-gradient(circle at 100% 100%, rgba(0, 240, 255, 0.1), transparent 38%);
     transition: opacity 0.2s ease;
   }
   
@@ -519,7 +538,7 @@
     border-radius: 15px;
     color: white;
     background:
-      linear-gradient(135deg, rgba(217, 70, 239, 0.9), rgba(37, 99, 235, 0.9));
+      linear-gradient(135deg, rgba(255, 28, 247, 0.9), rgba(0, 240, 255, 0.9));
     box-shadow: 0 0 28px rgba(168, 85, 247, 0.18);
     margin-bottom: 22px;
   }
@@ -548,8 +567,42 @@
     font-size: 28px;
   }
   
+  /* Đã cập nhật: Kéo dãn full chiều ngang hàng cuối để b bị lệch ô trống */
   .landing-feature-wide {
-    grid-column: span 2;
+    grid-column: span 4;
+  }
+  
+  /* Phần Footer Mới thêm vào cuối trang */
+  .landing-footer {
+    border-top: 1px solid rgba(39, 39, 42, 0.6);
+    background: #000;
+    margin-top: 64px;
+  }
+  
+  .landing-footer-inner {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 32px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #71717a;
+    font-size: 14px;
+  }
+  
+  .landing-footer-links {
+    display: flex;
+    gap: 24px;
+  }
+  
+  .landing-footer-links a {
+    color: #71717a;
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  
+  .landing-footer-links a:hover {
+    color: #fff;
   }
   
   /* Responsive */
@@ -563,7 +616,10 @@
       grid-template-columns: repeat(2, 1fr);
     }
   
-    .landing-feature-large,
+    .landing-feature-large {
+      grid-column: span 2;
+    }
+    
     .landing-feature-wide {
       grid-column: span 2;
     }
@@ -583,7 +639,7 @@
     }
   
     .landing-hero h1 {
-      font-size: 46px;
+      font-size: 38px;
     }
   
     .landing-hero-desc {
@@ -615,5 +671,12 @@
   
     .landing-feature-large h3 {
       font-size: 22px;
+    }
+    
+    .landing-footer-inner {
+      flex-direction: column;
+      gap: 16px;
+      text-align: center;
+      padding: 24px 16px;
     }
   }
