@@ -4,6 +4,7 @@ import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { GeneratePage } from './pages/GeneratePage'
+import { HistoryPage } from './pages/HistoryPage'
 import { CallbackPage } from './pages/CallbackPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
@@ -27,6 +28,16 @@ function App() {
             }
           />
 
+          <Route
+            path="/history"
+            element={
+              <ProtectedRoute>
+                <HistoryPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route path="/bin" element={<Navigate to="/history" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
