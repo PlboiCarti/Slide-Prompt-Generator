@@ -1,178 +1,525 @@
-.history-page {
-  min-height: 100vh;
-  background: #f7f8fa;
-  color: #111827;
-  padding: 32px;
-}
+/* ──────────────────────────────────────────────────────
+   HistoryPage — Dark Tech / Cyberpunk
+   Applies to History tab + Bin tab
+   ────────────────────────────────────────────────────── */
 
-.history-header {
-  max-width: 980px;
-  margin: 0 auto 24px;
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-  align-items: flex-start;
-}
-
-.history-header h1 {
-  font-size: 28px;
-  margin: 0 0 6px;
-}
-
-.history-header p,
-.history-card p,
-.history-empty p {
-  color: #6b7280;
-}
-
-.history-actions,
-.history-card-actions,
-.history-tabs {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.history-actions button,
-.history-card-actions button,
-.history-empty button,
-.history-tabs button,
-.history-modal button {
-  border: 1px solid #d1d5db;
-  background: white;
-  color: #374151;
-  border-radius: 8px;
-  padding: 9px 14px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.history-actions button:hover,
-.history-card-actions button:hover,
-.history-empty button:hover,
-.history-tabs button:hover,
-.history-modal button:hover {
-  background: #f3f4f6;
-}
-
-.history-actions .danger,
-.history-card-actions .danger {
-  color: #b91c1c;
-  border-color: #fecaca;
-}
-
-.history-tabs {
-  max-width: 980px;
-  margin: 0 auto 18px;
-}
-
-.history-tabs button.active {
-  color: #4f46e5;
-  border-color: #c7d2fe;
-  background: #eef2ff;
-}
-
-.history-list {
-  max-width: 980px;
-  margin: 0 auto;
-  display: grid;
-  gap: 12px;
-}
-
-.history-card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-left: 4px solid #9ca3af;
-  border-radius: 8px;
-  padding: 18px;
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.history-card h2 {
-  font-size: 17px;
-  margin: 6px 0;
-}
-
-.history-status {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #4b5563;
-}
-
-.status-completed {
-  border-left-color: #16a34a;
-}
-
-.status-draft {
-  border-left-color: #7c3aed;
-}
-
-.status-failed {
-  border-left-color: #dc2626;
-}
-
-.history-item-error,
-.history-error {
-  color: #b91c1c;
-}
-
-.history-empty,
-.history-error {
-  max-width: 980px;
-  margin: 0 auto;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 24px;
-}
-
-.history-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(17, 24, 39, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-
-.history-modal {
-  width: min(900px, 100%);
-  max-height: 85vh;
-  overflow: hidden;
-  background: white;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-}
-
-.history-modal header {
-  padding: 16px 18px;
-  border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.history-modal pre {
-  margin: 0;
-  padding: 18px;
-  max-height: 70vh;
-  overflow: auto;
-  white-space: pre-wrap;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-@media (max-width: 700px) {
-  .history-page {
-    padding: 20px 14px;
+   .history-page {
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+    padding: 46px 24px 86px;
+    color: #ffffff;
+    background:
+      radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.16), transparent 34%),
+      radial-gradient(circle at 10% 24%, rgba(34, 211, 238, 0.11), transparent 30%),
+      radial-gradient(circle at 90% 55%, rgba(217, 70, 239, 0.11), transparent 30%),
+      #000000;
+    font-family:
+      Inter,
+      "Plus Jakarta Sans",
+      "Geist Sans",
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
   }
-
-  .history-header,
+  
+  .history-page::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: linear-gradient(to bottom, black, transparent 78%);
+  }
+  
+  .history-page::after {
+    content: "";
+    position: fixed;
+    width: 420px;
+    height: 420px;
+    right: -170px;
+    top: 260px;
+    border-radius: 999px;
+    background: rgba(34, 211, 238, 0.16);
+    filter: blur(120px);
+    pointer-events: none;
+  }
+  
+  /* Header */
+  
+  .history-header {
+    position: relative;
+    z-index: 1;
+    max-width: 1120px;
+    margin: 0 auto 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 22px;
+  }
+  
+  .history-header h1 {
+    margin: 0;
+    color: white;
+    font-size: clamp(38px, 5vw, 58px);
+    line-height: 0.98;
+    font-weight: 900;
+    letter-spacing: -0.065em;
+  }
+  
+  .history-header h1::after {
+    content: "";
+    display: block;
+    width: 112px;
+    height: 4px;
+    margin-top: 18px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #d946ef, #7c3aed, #22d3ee);
+    box-shadow:
+      0 0 26px rgba(217, 70, 239, 0.35),
+      0 0 30px rgba(34, 211, 238, 0.22);
+  }
+  
+  .history-header p {
+    max-width: 660px;
+    margin: 20px 0 0;
+    color: #a1a1aa;
+    font-size: 15.5px;
+    line-height: 1.75;
+  }
+  
+  .history-actions,
+  .history-card-actions,
+  .history-tabs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  
+  .history-actions {
+    justify-content: flex-end;
+  }
+  
+  /* Global buttons */
+  
+  .history-actions button,
+  .history-card-actions button,
+  .history-empty button,
+  .history-tabs button,
+  .history-modal button {
+    border: 1px solid #3f3f46;
+    background: rgba(9, 9, 11, 0.82);
+    color: white;
+    border-radius: 999px;
+    padding: 10px 15px;
+    font-size: 14px;
+    font-weight: 750;
+    cursor: pointer;
+    transition:
+      transform 0.18s ease,
+      border-color 0.18s ease,
+      box-shadow 0.18s ease,
+      background 0.18s ease;
+  }
+  
+  .history-actions button:hover,
+  .history-card-actions button:hover,
+  .history-empty button:hover,
+  .history-tabs button:hover,
+  .history-modal button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(34, 211, 238, 0.7);
+    background: rgba(9, 9, 11, 0.96);
+    box-shadow: 0 0 26px rgba(34, 211, 238, 0.14);
+  }
+  
+  .history-actions .danger,
+  .history-card-actions .danger {
+    color: #fecdd3;
+    border-color: rgba(251, 113, 133, 0.42);
+    background: rgba(127, 29, 29, 0.22);
+  }
+  
+  .history-actions .danger:hover,
+  .history-card-actions .danger:hover {
+    border-color: rgba(251, 113, 133, 0.68);
+    box-shadow: 0 0 26px rgba(251, 113, 133, 0.16);
+  }
+  
+  /* Tabs */
+  
+  .history-tabs {
+    position: relative;
+    z-index: 1;
+    max-width: 1120px;
+    margin: 0 auto 22px;
+    padding: 8px;
+    border: 1px solid #27272a;
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(217, 70, 239, 0.08), transparent 38%),
+      rgba(9, 9, 11, 0.74);
+    width: fit-content;
+    box-shadow:
+      0 22px 70px rgba(0, 0, 0, 0.34),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+  
+  .history-tabs button {
+    border-color: transparent;
+    background: transparent;
+    color: #a1a1aa;
+    padding: 10px 16px;
+  }
+  
+  .history-tabs button:hover {
+    color: white;
+  }
+  
+  .history-tabs button.active {
+    color: white;
+    border-color: rgba(34, 211, 238, 0.6);
+    background:
+      linear-gradient(135deg, rgba(217, 70, 239, 0.22), rgba(34, 211, 238, 0.12));
+    box-shadow: 0 0 24px rgba(34, 211, 238, 0.12);
+  }
+  
+  /* List */
+  
+  .history-list {
+    position: relative;
+    z-index: 1;
+    max-width: 1120px;
+    margin: 0 auto;
+    display: grid;
+    gap: 14px;
+  }
+  
   .history-card {
-    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #27272a;
+    border-left: 4px solid #52525b;
+    border-radius: 24px;
+    padding: 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 22px;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(168, 85, 247, 0.09), transparent 36%),
+      radial-gradient(circle at 100% 0%, rgba(34, 211, 238, 0.07), transparent 34%),
+      rgba(9, 9, 11, 0.92);
+    box-shadow:
+      0 24px 70px rgba(0, 0, 0, 0.42),
+      inset 0 1px 0 rgba(255, 255, 255, 0.055);
+    transition:
+      transform 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
   }
-}
+  
+  .history-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(217, 70, 239, 0.15), transparent 42%),
+      radial-gradient(circle at 100% 100%, rgba(34, 211, 238, 0.1), transparent 38%);
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+  
+  .history-card:hover {
+    transform: translateY(-3px);
+    border-color: #52525b;
+    box-shadow:
+      0 28px 80px rgba(0, 0, 0, 0.52),
+      0 0 34px rgba(168, 85, 247, 0.1);
+  }
+  
+  .history-card:hover::before {
+    opacity: 1;
+  }
+  
+  .history-card > div {
+    position: relative;
+    z-index: 1;
+  }
+  
+  .history-card h2 {
+    margin: 9px 0 10px;
+    color: white;
+    font-size: 18px;
+    line-height: 1.35;
+    font-weight: 850;
+    letter-spacing: -0.025em;
+  }
+  
+  .history-card p,
+  .history-empty p {
+    margin: 6px 0;
+    color: #a1a1aa;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  
+  .history-status {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 7px 11px;
+    border-radius: 999px;
+    border: 1px solid #3f3f46;
+    background: rgba(9, 9, 11, 0.72);
+    color: #d4d4d8;
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  
+  /* Status colors */
+  
+  .status-completed {
+    border-left-color: #22c55e;
+  }
+  
+  .status-completed .history-status {
+    color: #bbf7d0;
+    border-color: rgba(34, 197, 94, 0.48);
+    background: rgba(20, 83, 45, 0.28);
+  }
+  
+  .status-draft {
+    border-left-color: #d946ef;
+  }
+  
+  .status-draft .history-status {
+    color: #f5d0fe;
+    border-color: rgba(217, 70, 239, 0.48);
+    background: rgba(112, 26, 117, 0.26);
+  }
+  
+  .status-failed {
+    border-left-color: #fb7185;
+  }
+  
+  .status-failed .history-status {
+    color: #fecdd3;
+    border-color: rgba(251, 113, 133, 0.5);
+    background: rgba(127, 29, 29, 0.26);
+  }
+  
+  .history-item-error {
+    margin-top: 10px !important;
+    color: #fecdd3 !important;
+    padding: 10px 12px;
+    border: 1px solid rgba(251, 113, 133, 0.38);
+    border-radius: 14px;
+    background: rgba(127, 29, 29, 0.22);
+  }
+  
+  .history-card-actions {
+    justify-content: flex-end;
+    min-width: 180px;
+  }
+  
+  /* Empty + Error */
+  
+  .history-empty,
+  .history-error {
+    position: relative;
+    z-index: 1;
+    max-width: 1120px;
+    margin: 0 auto 18px;
+    border: 1px solid #27272a;
+    border-radius: 24px;
+    padding: 30px;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.08), transparent 38%),
+      rgba(9, 9, 11, 0.9);
+    box-shadow:
+      0 24px 70px rgba(0, 0, 0, 0.36),
+      inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  }
+  
+  .history-error {
+    color: #fecdd3;
+    border-color: rgba(251, 113, 133, 0.42);
+    background:
+      radial-gradient(circle at 0% 0%, rgba(251, 113, 133, 0.13), transparent 38%),
+      rgba(9, 9, 11, 0.92);
+  }
+  
+  .history-empty {
+    text-align: center;
+  }
+  
+  .history-empty p {
+    margin-bottom: 18px;
+  }
+  
+  /* Modal */
+  
+  .history-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.74);
+    backdrop-filter: blur(14px);
+  }
+  
+  .history-modal {
+    width: min(980px, 100%);
+    max-height: 86vh;
+    overflow: hidden;
+    border: 1px solid #27272a;
+    border-radius: 26px;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(217, 70, 239, 0.11), transparent 38%),
+      radial-gradient(circle at 100% 0%, rgba(34, 211, 238, 0.09), transparent 34%),
+      #09090b;
+    box-shadow:
+      0 35px 110px rgba(0, 0, 0, 0.68),
+      0 0 40px rgba(168, 85, 247, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  }
+  
+  .history-modal header {
+    padding: 18px 22px;
+    border-bottom: 1px solid #27272a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.3);
+  }
+  
+  .history-modal header h2 {
+    margin: 0;
+    color: white;
+    font-size: 18px;
+    line-height: 1.35;
+    font-weight: 850;
+  }
+  
+  .history-modal pre {
+    margin: 0;
+    padding: 24px;
+    max-height: 70vh;
+    overflow: auto;
+    white-space: pre-wrap;
+    color: #d4d4d8;
+    background: rgba(0, 0, 0, 0.72);
+    font-family:
+      "SF Mono",
+      "Cascadia Code",
+      Consolas,
+      monospace;
+    font-size: 13px;
+    line-height: 1.72;
+  }
+  
+  .history-modal pre::selection {
+    background: rgba(34, 211, 238, 0.28);
+  }
+  
+  .history-modal pre::-webkit-scrollbar {
+    width: 10px;
+  }
+  
+  .history-modal pre::-webkit-scrollbar-track {
+    background: #09090b;
+  }
+  
+  .history-modal pre::-webkit-scrollbar-thumb {
+    background: #3f3f46;
+    border-radius: 999px;
+    border: 2px solid #09090b;
+  }
+  
+  /* Responsive */
+  
+  @media (max-width: 800px) {
+    .history-page {
+      padding: 34px 16px 66px;
+    }
+  
+    .history-header {
+      flex-direction: column;
+    }
+  
+    .history-actions {
+      justify-content: flex-start;
+    }
+  
+    .history-tabs {
+      width: 100%;
+      border-radius: 22px;
+    }
+  
+    .history-tabs button {
+      flex: 1;
+    }
+  
+    .history-card {
+      flex-direction: column;
+    }
+  
+    .history-card-actions {
+      min-width: 0;
+      width: 100%;
+      justify-content: flex-start;
+    }
+  }
+  
+  @media (max-width: 560px) {
+    .history-header h1 {
+      font-size: 38px;
+    }
+  
+    .history-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+  
+    .history-card {
+      padding: 18px;
+      border-radius: 20px;
+    }
+  
+    .history-card-actions button,
+    .history-actions button,
+    .history-empty button {
+      width: 100%;
+    }
+  
+    .history-modal-backdrop {
+      padding: 14px;
+    }
+  
+    .history-modal {
+      border-radius: 20px;
+    }
+  
+    .history-modal header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  
+    .history-modal pre {
+      padding: 18px;
+      font-size: 12px;
+    }
+  }
