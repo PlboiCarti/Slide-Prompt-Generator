@@ -4,29 +4,29 @@ import './LandingPage.css'
 
 const features = [
   {
-    title: 'Keyword Optimization',
+    title: 'Tối Ưu Hóa Từ Khóa',
     desc: 'Tự động biến ý tưởng thô thành brief rõ ràng, có mục tiêu, audience và thông điệp chính.',
     icon: '✦',
     className: 'landing-feature-large',
   },
   {
-    title: 'PowerPoint Structure',
-    desc: 'Sinh cấu trúc slide theo layout: key message, split, grid cards, timeline, big stat.',
+    title: 'Cấu Trúc Slide Chuyên Nghiệp',
+    desc: 'Sinh cấu trúc slide theo bố cục chuẩn: key message, split, grid cards, timeline, big stat.',
     icon: '▣',
   },
   {
-    title: 'AI Design Direction',
-    desc: 'Gợi ý tone, font, mật độ thông tin và hướng hình ảnh trước khi tạo Master Prompt.',
+    title: 'Định Hướng Thiết Kế AI',
+    desc: 'Gợi ý tone màu, font chữ, mật độ thông tin và hướng hình ảnh trước khi tạo Master Prompt.',
     icon: '◈',
   },
   {
-    title: 'Multi-language Ready',
-    desc: 'Hỗ trợ tạo prompt bằng tiếng Việt hoặc tiếng Anh cho nhiều ngữ cảnh trình bày.',
+    title: 'Hỗ Trợ Đa Ngôn Ngữ',
+    desc: 'Sẵn sàng tạo prompt bằng tiếng Việt hoặc tiếng Anh phù hợp với nhiều ngữ cảnh trình bày.',
     icon: '⌁',
   },
   {
-    title: 'One-click Master Prompt',
-    desc: 'Copy một lần và dùng ngay với ChatGPT, Claude hoặc Gemini để dựng slide.',
+    title: 'Master Prompt Một Cú Click',
+    desc: 'Sao chép một lần và dùng ngay với ChatGPT, Claude hoặc Gemini để dựng slide trong vài giây.',
     icon: '↗',
     className: 'landing-feature-wide',
   },
@@ -45,6 +45,7 @@ export function LandingPage() {
       <div className="landing-glow landing-glow-pink" />
       <div className="landing-glow landing-glow-blue" />
 
+      {/* Header */}
       <header className="landing-nav">
         <div className="landing-nav-inner">
           <button className="landing-brand" onClick={() => navigate('/')}>
@@ -53,10 +54,10 @@ export function LandingPage() {
           </button>
 
           <nav className="landing-nav-links">
-            <a href="#demo">Demo</a>
-            <a href="#features">Features</a>
+            <a href="#demo">Trải nghiệm</a>
+            <a href="#features">Tính năng</a>
             <button className="landing-nav-login" onClick={handleGetStarted}>
-              {user ? 'Open Builder' : 'Login'}
+              {user ? 'Mở Builder' : 'Đăng nhập'}
             </button>
           </nav>
         </div>
@@ -67,28 +68,25 @@ export function LandingPage() {
         <section className="landing-hero">
           <div className="landing-pill">
             <span className="landing-pulse" />
-            AI-powered prompt workflow for stunning slides
+            Quy trình tạo prompt bằng AI cho những slide ấn tượng
           </div>
 
-          <h1>
-            Craft{' '}
-            <span className="gradient-pink">Smarter Prompts.</span>
-            <br />
-            Generate{' '}
-            <span className="gradient-blue">Stunning Slides.</span>
-          </h1>
+            <h1>
+                <span className="hero-line">Thiết Kế Prompt Thông Minh Hơn</span>
+                <span className="hero-line">Tạo Ra Slide Ấn Tượng Hơn</span>
+            </h1>
 
           <p className="landing-hero-desc">
-            Build presentation-ready Master Prompts with AI design direction,
-            slide structure, content mapping and polished visual guidance in one flow.
+            Xây dựng các Master Prompt sẵn sàng cho bài thuyết trình với định hướng thiết kế AI, 
+            cấu trúc slide, sơ đồ nội dung và hướng dẫn trực quan sắc nét chỉ trong một quy trình.
           </p>
 
           <div className="landing-hero-actions">
             <button className="landing-btn landing-btn-primary" onClick={handleGetStarted}>
-              Get Started
+              Bắt Đầu Ngay
             </button>
             <a className="landing-btn landing-btn-secondary" href="#demo">
-              Explore Templates
+              Khám Phá Mẫu
             </a>
           </div>
         </section>
@@ -96,11 +94,11 @@ export function LandingPage() {
         {/* Quick Interactive Demo */}
         <section id="demo" className="landing-section landing-demo-section">
           <div className="landing-section-heading">
-            <span className="landing-kicker">Quick Interactive Demo</span>
-            <h2>From rough idea to polished AI prompt.</h2>
+            <span className="landing-kicker">Bản Demo Tương Tác Nhanh</span>
+            <h2>Từ ý tưởng thô đến AI prompt hoàn thiện.</h2>
             <p>
-              Mô phỏng luồng chính của app: nhập brief bên trái, AI preview prompt
-              bên phải theo phong cách dark tech.
+              Mô phỏng luồng xử lý chính: nhập brief bên trái, AI tự động xem trước bản prompt 
+              bên phải theo phong cách dark tech thời thượng.
             </p>
           </div>
 
@@ -117,7 +115,7 @@ export function LandingPage() {
             <div className="landing-demo-grid">
               <div className="landing-demo-left">
                 <label>
-                  Presentation Goal
+                  Mục Tiêu Bài Thuyết Trình
                   <textarea
                     readOnly
                     value="Pitch deck giới thiệu sản phẩm AI giúp sinh slide nhanh cho sinh viên và team marketing."
@@ -125,18 +123,18 @@ export function LandingPage() {
                 </label>
 
                 <div className="landing-demo-options">
-                  <div className="landing-chip active">Modern</div>
-                  <div className="landing-chip">Technical</div>
-                  <div className="landing-chip">Creative</div>
+                  <div className="landing-chip active">Hiện Đại</div>
+                  <div className="landing-chip">Kỹ Thuật</div>
+                  <div className="landing-chip">Sáng Tạo</div>
                 </div>
 
                 <div className="landing-demo-mini-grid">
                   <div>
-                    <span>Slides</span>
+                    <span>Số Slide</span>
                     <strong>08</strong>
                   </div>
                   <div>
-                    <span>Layout</span>
+                    <span>Bố Cục</span>
                     <strong>Grid Cards</strong>
                   </div>
                 </div>
@@ -170,11 +168,11 @@ OUTPUT:
         {/* Bento Features */}
         <section id="features" className="landing-section">
           <div className="landing-section-heading">
-            <span className="landing-kicker">Bento Grid Features</span>
-            <h2>Everything needed to build better slide prompts.</h2>
+            <span className="landing-kicker">Tính Năng Bento Grid</span>
+            <h2>Mọi công cụ cần thiết để tạo prompt slide tốt hơn.</h2>
             <p>
-              Tập trung vào 3 giá trị chính: tối ưu prompt, cấu trúc slide,
-              và định hướng thiết kế trực quan.
+              Tập trung giải quyết 3 giá trị cốt lõi: tối ưu cấu trúc từ khóa, 
+              định hình layout slide và định hướng thẩm mỹ trực quan.
             </p>
           </div>
 
@@ -192,6 +190,17 @@ OUTPUT:
           </div>
         </section>
       </main>
+
+      {/* Footer mới giúp trang cân đối hơn */}
+      <footer className="landing-footer">
+        <div className="landing-footer-inner">
+          <p>© {new Date().getFullYear()} Slide Prompt Builder. Tất cả các quyền được bảo lưu.</p>
+          <div className="landing-footer-links">
+            <a href="#demo">Trải nghiệm</a>
+            <a href="#features">Tính năng</a>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }
