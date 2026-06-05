@@ -250,10 +250,18 @@ export function GeneratePage() {
     }
   }
 
-  const handleDescriptionChange =
-    (field: keyof DesignDescription) => (e: ChangeEvent<HTMLTextAreaElement>) => {
-      setDescription(prev => (prev ? { ...prev, [field]: e.target.value } : null))
-    }
+const resizeTextarea = (textarea: HTMLTextAreaElement | null) => {
+  if (!textarea) return
+
+  textarea.style.height = 'auto'
+  textarea.style.height = `${textarea.scrollHeight}px`
+}
+
+const handleDescriptionChange =
+  (field: keyof DesignDescription) => (e: ChangeEvent<HTMLTextAreaElement>) => {
+    resizeTextarea(e.currentTarget)
+    setDescription(prev => (prev ? { ...prev, [field]: e.target.value } : null))
+  }
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     setPdfFile(e.target.files?.[0] || null)
@@ -732,9 +740,10 @@ export function GeneratePage() {
                     <span className="gen-desc-hint">{DESC_HINTS[field]}</span>
                   </label>
                   <textarea
+                    className={`gen-desc-textarea gen-desc-textarea-${field}`}
                     value={description[field]}
                     onChange={handleDescriptionChange(field)}
-                    rows={2}
+                    rows={3}
                     disabled={isRunning}
                   />
                 </div>

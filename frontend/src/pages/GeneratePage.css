@@ -1597,3 +1597,63 @@
   background: rgba(127, 29, 29, 0.28);
   color: #fff1f2;
 }
+
+/* ──────────────────────────────────────────────────────
+   Better textarea UX for AI Design Direction
+   Fix scrollbar xấu + textbox quá thấp
+   ────────────────────────────────────────────────────── */
+
+   .gen-desc-textarea {
+    min-height: 82px;
+    max-height: 180px;
+    overflow-y: auto;
+    resize: none;
+  
+    scrollbar-width: thin;
+    scrollbar-color: rgba(34, 211, 238, 0.45) rgba(9, 9, 11, 0.88);
+  }
+  
+  .gen-desc-textarea-density,
+  .gen-desc-textarea-visual,
+  .gen-desc-textarea-key_message_rule {
+    min-height: 96px;
+    max-height: 220px;
+  }
+  
+  /* Chrome / Edge / Safari scrollbar */
+  .gen-desc-textarea::-webkit-scrollbar,
+  .gen-field textarea::-webkit-scrollbar {
+    width: 7px;
+  }
+  
+  .gen-desc-textarea::-webkit-scrollbar-track,
+  .gen-field textarea::-webkit-scrollbar-track {
+    background: rgba(9, 9, 11, 0.8);
+    border-radius: 999px;
+  }
+  
+  .gen-desc-textarea::-webkit-scrollbar-thumb,
+  .gen-field textarea::-webkit-scrollbar-thumb {
+    background:
+      linear-gradient(180deg, rgba(255, 28, 247, 0.62), rgba(0, 240, 255, 0.62));
+    border-radius: 999px;
+    border: 2px solid rgba(9, 9, 11, 0.9);
+  }
+  
+  .gen-desc-textarea::-webkit-scrollbar-thumb:hover,
+  .gen-field textarea::-webkit-scrollbar-thumb:hover {
+    background:
+      linear-gradient(180deg, rgba(255, 28, 247, 0.85), rgba(0, 240, 255, 0.85));
+  }
+  
+  /* Làm textbox nhìn gọn hơn */
+  .gen-desc-field textarea {
+    padding-right: 14px;
+    line-height: 1.7;
+  }
+  
+  /* Ô content chính cũng đỡ xấu scrollbar hơn */
+  .gen-field textarea {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(34, 211, 238, 0.45) rgba(9, 9, 11, 0.88);
+  }
