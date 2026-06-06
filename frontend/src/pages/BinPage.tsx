@@ -71,7 +71,14 @@ export function BinPage() {
           <article key={item.id} className={`history-card status-${item.status.toLowerCase()}`}>
             <div>
               <span className="history-status">{item.status}</span>
-              <h2>{item.purpose || 'Khong co tieu de'}</h2>
+              <div className="history-card-meta">
+                <span>
+                  <strong>Muc dich:</strong> {item.purpose || 'Khong co thong tin'}
+                </span>
+                <span>
+                  <strong>Doi tuong:</strong> {item.audience || 'Khong co thong tin'}
+                </span>
+              </div>
               <p>Da xoa: {new Date(item.deleted_at).toLocaleString()}</p>
               {item.error_message && <p className="history-item-error">{item.error_message}</p>}
             </div>

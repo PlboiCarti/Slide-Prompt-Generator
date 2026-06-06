@@ -10,7 +10,6 @@ const TABS: Array<{ key: HistoryTab; label: string }> = [
   { key: 'COMPLETED', label: 'Hoàn thành' },
   { key: 'DRAFT', label: 'Bản nháp' },
   { key: 'FAILED', label: 'Thất bại' },
-  { key: 'BIN', label: 'Thùng rác' },
 ]
 
 const STATUS_LABELS: Record<string, string> = {
@@ -18,6 +17,8 @@ const STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Bản nháp',
   FAILED: 'Thất bại',
 }
+
+const PAGE_SIZE = 10
 
 interface ResultModalItem extends HistoryItem {
   result?: JobResult | null
@@ -31,6 +32,14 @@ export function HistoryPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [resultModal, setResultModal] = useState<ResultModalItem | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const isBinTab = activeTab === 'BIN'
+  const visibleCount = isBinTab ? binItems.length : items.length
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
+  const offset = (currentPage - 1) * PAGE_SIZE
 
   useEffect(() => {
     const loadHistory = async () => {
@@ -38,14 +47,16 @@ export function HistoryPage() {
       setError('')
       try {
         if (activeTab === 'BIN') {
-          const res = await binAPI.getBin()
+          const res = await binAPI.getBin(PAGE_SIZE, offset)
           setBinItems(res.data.items)
           setItems([])
+          setTotalItems(res.data.total)
         } else {
           const filter = activeTab === 'ALL' ? undefined : activeTab
-          const res = await historyAPI.getHistory(filter)
+          const res = await historyAPI.getHistory(filter, PAGE_SIZE, offset)
           setItems(res.data.items)
           setBinItems([])
+          setTotalItems(res.data.total)
         }
       } catch (err: any) {
         setError(err.response?.data?.detail || 'Không tải được lịch sử')
@@ -55,28 +66,45 @@ export function HistoryPage() {
     }
 
     loadHistory()
-  }, [activeTab])
+  }, [activeTab, offset, refreshKey])
+
+  useEffect(() => {
+    const nextTotalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
+    if (currentPage > nextTotalPages) {
+      setCurrentPage(nextTotalPages)
+    }
+  }, [currentPage, totalItems])
+
+  const refreshAfterMutation = () => {
+    if (visibleCount === 1 && currentPage > 1) {
+      setCurrentPage((page) => page - 1)
+    } else {
+      setRefreshKey((key) => key + 1)
+    }
+  }
 
   const handleDelete = async (id: string) => {
     await historyAPI.softDelete(id)
-    setItems((prev) => prev.filter((item) => item.id !== id))
+    refreshAfterMutation()
   }
 
   const handleRestore = async (id: string) => {
     await binAPI.restore(id)
-    setBinItems((prev) => prev.filter((item) => item.id !== id))
+    refreshAfterMutation()
   }
 
   const handleHardDelete = async (id: string) => {
     if (!confirm('Xóa vĩnh viễn mục này? Hành động này không thể hoàn tác.')) return
     await binAPI.hardDelete(id)
-    setBinItems((prev) => prev.filter((item) => item.id !== id))
+    refreshAfterMutation()
   }
 
   const handleEmptyBin = async () => {
     if (!confirm('Xóa vĩnh viễn tất cả mục trong thùng rác? Hành động này không thể hoàn tác.')) return
     await binAPI.emptyBin()
     setBinItems([])
+    setTotalItems(0)
+    setCurrentPage(1)
   }
 
   const handleResume = async (item: HistoryItem) => {
@@ -91,15 +119,32 @@ export function HistoryPage() {
     setResultModal({ ...item, result: res.data.result })
   }
 
-  const isBinTab = activeTab === 'BIN'
-  const visibleCount = isBinTab ? binItems.length : items.length
+  const handleTabChange = (tab: HistoryTab) => {
+    setCurrentPage(1)
+    setActiveTab(tab)
+  }
+
+  const handleBinToggle = () => {
+    setCurrentPage(1)
+    setActiveTab(isBinTab ? 'ALL' : 'BIN')
+  }
+
+  const goToPage = (page: number) => {
+    const nextPage = Math.min(Math.max(page, 1), totalPages)
+    setCurrentPage(nextPage)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   return (
     <div className="history-page">
       <header className="history-header">
         <div>
-          <h1>Lịch sử Prompt</h1>
-          <p>Xem lại prompt đã tạo, bản nháp, lần tạo thất bại và các mục trong thùng rác.</p>
+          <h1>{isBinTab ? 'Thùng rác' : 'Lịch sử Prompt'}</h1>
+          <p>
+            {isBinTab
+              ? 'Khôi phục hoặc xóa vĩnh viễn các mục đã xóa.'
+              : 'Xem lại prompt đã tạo, bản nháp và lần tạo thất bại.'}
+          </p>
         </div>
         <div className="history-actions">
           <button onClick={() => navigate('/generate')}>Tạo prompt mới</button>
@@ -109,17 +154,19 @@ export function HistoryPage() {
         </div>
       </header>
 
-      <nav className="history-tabs">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            className={activeTab === tab.key ? 'active' : ''}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
+      {!isBinTab && (
+        <nav className="history-tabs">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              className={activeTab === tab.key ? 'active' : ''}
+              onClick={() => handleTabChange(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      )}
 
       {error && <div className="history-error">{error}</div>}
       {isLoading && <div className="history-empty">Đang tải...</div>}
@@ -187,6 +234,49 @@ export function HistoryPage() {
           ))}
         </div>
       )}
+
+      {totalItems > PAGE_SIZE && (
+        <nav className="history-pagination" aria-label="Phân trang lịch sử">
+          <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1 || isLoading}>
+            Trước
+          </button>
+          <span>
+            Trang {currentPage} / {totalPages} - {totalItems} mục
+          </span>
+          <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages || isLoading}>
+            Sau
+          </button>
+        </nav>
+      )}
+
+      <button
+        type="button"
+        className={`history-bin-fab ${isBinTab ? 'active' : ''}`}
+        onClick={handleBinToggle}
+        aria-label={isBinTab ? 'Quay lại lịch sử' : 'Mở thùng rác'}
+        title={isBinTab ? 'Quay lại lịch sử' : 'Thùng rác'}
+      >
+        {isBinTab ? (
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M4 7.6A9 9 0 1 1 3 12"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+            />
+            <path d="M4 3.8v3.8h3.8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M12 7.8v4.8l3.2 1.9" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="12" cy="12" r="1.25" fill="currentColor" />
+          </svg>
+        ) : (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 7h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M6 7l1 14h10l1-14" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M9 7V4h6v3" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+          </svg>
+        )}
+      </button>
 
       {resultModal && (
         <div className="history-modal-backdrop" onClick={() => setResultModal(null)}>
