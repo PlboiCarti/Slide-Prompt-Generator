@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from models.job import Job
 from models.user import User
 from schemas.bin import BinItemResponse
-from schemas.jobs import HistoryItemResponse, JobStatus
+from schemas.history import HistoryItemResponse
+from schemas.jobs import JobStatus
 
 HISTORY_VISIBLE_STATUSES = (
     JobStatus.COMPLETED.value,
