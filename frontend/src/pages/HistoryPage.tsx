@@ -35,37 +35,53 @@ export function HistoryPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [mutatingId, setMutatingId] = useState<string | null>(null)
+  const [isEmptyingBin, setIsEmptyingBin] = useState(false)
 
   const isBinTab = activeTab === 'BIN'
   const visibleCount = isBinTab ? binItems.length : items.length
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
   const offset = (currentPage - 1) * PAGE_SIZE
 
+  const getErrorMessage = (err: any, fallback: string) => err.response?.data?.detail || fallback
+
   useEffect(() => {
+    let isCurrentRequest = true
+
     const loadHistory = async () => {
       setIsLoading(true)
       setError('')
       try {
         if (activeTab === 'BIN') {
           const res = await binAPI.getBin(PAGE_SIZE, offset)
+          if (!isCurrentRequest) return
           setBinItems(res.data.items)
           setItems([])
           setTotalItems(res.data.total)
         } else {
           const filter = activeTab === 'ALL' ? undefined : activeTab
           const res = await historyAPI.getHistory(filter, PAGE_SIZE, offset)
+          if (!isCurrentRequest) return
           setItems(res.data.items)
           setBinItems([])
           setTotalItems(res.data.total)
         }
       } catch (err: any) {
-        setError(err.response?.data?.detail || 'Không tải được lịch sử')
+        if (isCurrentRequest) {
+          setError(getErrorMessage(err, 'Không tải được lịch sử'))
+        }
       } finally {
-        setIsLoading(false)
+        if (isCurrentRequest) {
+          setIsLoading(false)
+        }
       }
     }
 
     loadHistory()
+
+    return () => {
+      isCurrentRequest = false
+    }
   }, [activeTab, offset, refreshKey])
 
   useEffect(() => {
@@ -84,27 +100,59 @@ export function HistoryPage() {
   }
 
   const handleDelete = async (id: string) => {
-    await historyAPI.softDelete(id)
-    refreshAfterMutation()
+    setMutatingId(id)
+    setError('')
+    try {
+      await historyAPI.softDelete(id)
+      refreshAfterMutation()
+    } catch (err: any) {
+      setError(getErrorMessage(err, 'Xóa mục thất bại. Vui lòng thử lại.'))
+    } finally {
+      setMutatingId(null)
+    }
   }
 
   const handleRestore = async (id: string) => {
-    await binAPI.restore(id)
-    refreshAfterMutation()
+    setMutatingId(id)
+    setError('')
+    try {
+      await binAPI.restore(id)
+      refreshAfterMutation()
+    } catch (err: any) {
+      setError(getErrorMessage(err, 'Khôi phục mục thất bại. Vui lòng thử lại.'))
+    } finally {
+      setMutatingId(null)
+    }
   }
 
   const handleHardDelete = async (id: string) => {
     if (!confirm('Xóa vĩnh viễn mục này? Hành động này không thể hoàn tác.')) return
-    await binAPI.hardDelete(id)
-    refreshAfterMutation()
+    setMutatingId(id)
+    setError('')
+    try {
+      await binAPI.hardDelete(id)
+      refreshAfterMutation()
+    } catch (err: any) {
+      setError(getErrorMessage(err, 'Xóa vĩnh viễn thất bại. Vui lòng thử lại.'))
+    } finally {
+      setMutatingId(null)
+    }
   }
 
   const handleEmptyBin = async () => {
     if (!confirm('Xóa vĩnh viễn tất cả mục trong thùng rác? Hành động này không thể hoàn tác.')) return
-    await binAPI.emptyBin()
-    setBinItems([])
-    setTotalItems(0)
-    setCurrentPage(1)
+    setIsEmptyingBin(true)
+    setError('')
+    try {
+      await binAPI.emptyBin()
+      setBinItems([])
+      setTotalItems(0)
+      setCurrentPage(1)
+    } catch (err: any) {
+      setError(getErrorMessage(err, 'Dọn sạch thùng rác thất bại. Vui lòng thử lại.'))
+    } finally {
+      setIsEmptyingBin(false)
+    }
   }
 
   const handleResume = async (item: HistoryItem) => {
@@ -149,7 +197,9 @@ export function HistoryPage() {
         <div className="history-actions">
           <button onClick={() => navigate('/generate')}>Tạo prompt mới</button>
           {isBinTab && binItems.length > 0 && (
-            <button className="danger" onClick={handleEmptyBin}>Dọn sạch thùng rác</button>
+            <button className="danger" onClick={handleEmptyBin} disabled={isEmptyingBin}>
+              {isEmptyingBin ? 'Đang dọn...' : 'Dọn sạch thùng rác'}
+            </button>
           )}
         </div>
       </header>
@@ -202,7 +252,9 @@ export function HistoryPage() {
                 {item.status === 'DRAFT' && (
                   <button onClick={() => handleResume(item)}>Tiếp tục</button>
                 )}
-                <button className="danger" onClick={() => handleDelete(item.id)}>Xóa</button>
+                <button className="danger" onClick={() => handleDelete(item.id)} disabled={mutatingId === item.id}>
+                  {mutatingId === item.id ? 'Đang xóa...' : 'Xóa'}
+                </button>
               </div>
             </article>
           ))}
@@ -227,8 +279,12 @@ export function HistoryPage() {
                 {item.error_message && <p className="history-item-error">{item.error_message}</p>}
               </div>
               <div className="history-card-actions">
-                <button onClick={() => handleRestore(item.id)}>Khôi phục</button>
-                <button className="danger" onClick={() => handleHardDelete(item.id)}>Xóa vĩnh viễn</button>
+                <button onClick={() => handleRestore(item.id)} disabled={mutatingId === item.id}>
+                  {mutatingId === item.id ? 'Đang xử lý...' : 'Khôi phục'}
+                </button>
+                <button className="danger" onClick={() => handleHardDelete(item.id)} disabled={mutatingId === item.id}>
+                  {mutatingId === item.id ? 'Đang xóa...' : 'Xóa vĩnh viễn'}
+                </button>
               </div>
             </article>
           ))}

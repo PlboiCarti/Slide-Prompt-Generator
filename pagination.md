@@ -403,7 +403,7 @@ setBinItems(res.data.items)
 setItems(res.data.items)
 ```
 
-Trong `frontend/src/pages/BinPage.tsx`, hiện tại:
+Trong phiên bản cũ, thùng rác từng có page riêng đọc response trực tiếp. Page riêng đó hiện đã được dọn bỏ; thùng rác được xử lý trong `frontend/src/pages/HistoryPage.tsx`.
 
 ```ts
 setItems(res.data)

@@ -63,6 +63,16 @@
   background: #f9fafb;
 }
 
+.history-actions button:disabled,
+.history-card-actions button:disabled,
+.history-empty button:disabled,
+.history-tabs button:disabled,
+.history-modal button:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+
 .history-actions .danger,
 .history-card-actions .danger {
   color: #b91c1c;

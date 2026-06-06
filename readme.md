@@ -176,7 +176,6 @@ prompt_builder/
         |   `-- api.ts
         `-- pages/
             |-- AuthPage.css
-            |-- BinPage.tsx
             |-- CallbackPage.tsx
             |-- GeneratePage.css
             |-- GeneratePage.tsx
@@ -221,7 +220,6 @@ prompt_builder/
 - `frontend/src/pages/CallbackPage.tsx`: xử lý redirect sau Google OAuth.
 - `frontend/src/pages/GeneratePage.tsx`: màn hình chính để phân tích thiết kế, lưu nháp, nhập nội dung và sinh Master Prompt.
 - `frontend/src/pages/HistoryPage.tsx`: xem lịch sử, bản nháp, prompt thất bại, thùng rác, phân trang 10 mục/trang và nút thùng rác floating ở góc dưới phải. Khi đang ở thùng rác, nút floating đổi sang icon lịch sử để quay lại danh sách lịch sử.
-- `frontend/src/pages/BinPage.tsx`: màn hình thùng rác riêng còn tồn tại trong source, nhưng route `/bin` hiện redirect về `/history`; thùng rác đang được xử lý trực tiếp trong `HistoryPage.tsx`.
 
 ## Cài Đặt Và Chạy Local
 
@@ -360,7 +358,7 @@ DRAFT là trạng thái riêng dùng cho bản nháp.
 - Các API tạo prompt yêu cầu user đã đăng nhập.
 - `POST /api/generate` nhận `multipart/form-data` vì có thể upload PDF.
 - Frontend lưu access token email/password trong `localStorage`; Google OAuth dùng cookie `access_token`.
-- `frontend/src/pages/BinPage.tsx` vẫn tồn tại nhưng route `/bin` trong `App.tsx` hiện redirect về `/history`; thùng rác được mở bằng nút floating ở góc dưới phải trong `HistoryPage.tsx`.
+- Route `/bin` trong `App.tsx` hiện redirect về `/history`; thùng rác được mở bằng nút floating ở góc dưới phải trong `HistoryPage.tsx`.
 - Phân trang frontend dùng `limit=10` và `offset` khi gọi `/api/history` hoặc `/api/bin`; backend trả về `items`, `total`, `limit`, `offset`.
 - Icon trong nút floating là SVG inline tự tạo: ở trang lịch sử là icon thùng rác, ở thùng rác là icon lịch sử dạng vòng mũi tên/đồng hồ để quay lại.
 
