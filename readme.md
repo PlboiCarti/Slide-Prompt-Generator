@@ -30,6 +30,8 @@ Luồng sử dụng chính:
 - Lưu bản nháp, cập nhật bản nháp và tiếp tục chỉnh sửa.
 - Lịch sử prompt theo trạng thái: hoàn thành, bản nháp, thất bại.
 - Xóa mềm vào thùng rác, khôi phục, xóa vĩnh viễn hoặc dọn sạch thùng rác.
+- Phân trang lịch sử và thùng rác với 10 mục mỗi trang.
+- Nút thùng rác dạng floating action button ở góc dưới phải; khi đang ở thùng rác, nút đổi thành icon lịch sử để quay lại danh sách lịch sử.
 - Rate limit cho đăng nhập và sinh prompt.
 
 ## Tech Stack
@@ -218,8 +220,8 @@ prompt_builder/
 - `frontend/src/pages/RegisterPage.tsx`: màn hình đăng ký.
 - `frontend/src/pages/CallbackPage.tsx`: xử lý redirect sau Google OAuth.
 - `frontend/src/pages/GeneratePage.tsx`: màn hình chính để phân tích thiết kế, lưu nháp, nhập nội dung và sinh Master Prompt.
-- `frontend/src/pages/HistoryPage.tsx`: xem lịch sử, bản nháp, prompt thất bại và thùng rác.
-- `frontend/src/pages/BinPage.tsx`: màn hình thùng rác riêng, hiện route `/bin` đang được redirect về `/history`.
+- `frontend/src/pages/HistoryPage.tsx`: xem lịch sử, bản nháp, prompt thất bại, thùng rác, phân trang 10 mục/trang và nút thùng rác floating ở góc dưới phải. Khi đang ở thùng rác, nút floating đổi sang icon lịch sử để quay lại danh sách lịch sử.
+- `frontend/src/pages/BinPage.tsx`: màn hình thùng rác riêng còn tồn tại trong source, nhưng route `/bin` hiện redirect về `/history`; thùng rác đang được xử lý trực tiếp trong `HistoryPage.tsx`.
 
 ## Cài Đặt Và Chạy Local
 
@@ -336,7 +338,7 @@ Nếu chưa cấu hình SMTP, hệ thống chạy ở chế độ phát triển 
 | POST | `/api/drafts` | Lưu bản nháp |
 | PUT | `/api/drafts/{job_id}` | Cập nhật bản nháp |
 | GET | `/api/drafts/{job_id}` | Tải dữ liệu bản nháp |
-| GET | `/api/bin` | Lấy danh sách thùng rác |
+| GET | `/api/bin` | Lấy danh sách thùng rác có phân trang |
 | POST | `/api/bin/{job_id}/restore` | Khôi phục mục đã xóa |
 | DELETE | `/api/bin/{job_id}` | Xóa vĩnh viễn một mục |
 | DELETE | `/api/bin` | Dọn sạch thùng rác |
@@ -358,7 +360,9 @@ DRAFT là trạng thái riêng dùng cho bản nháp.
 - Các API tạo prompt yêu cầu user đã đăng nhập.
 - `POST /api/generate` nhận `multipart/form-data` vì có thể upload PDF.
 - Frontend lưu access token email/password trong `localStorage`; Google OAuth dùng cookie `access_token`.
-- `frontend/src/pages/BinPage.tsx` vẫn tồn tại nhưng route `/bin` trong `App.tsx` hiện redirect về `/history`, vì thùng rác đã được tích hợp thành tab trong History.
+- `frontend/src/pages/BinPage.tsx` vẫn tồn tại nhưng route `/bin` trong `App.tsx` hiện redirect về `/history`; thùng rác được mở bằng nút floating ở góc dưới phải trong `HistoryPage.tsx`.
+- Phân trang frontend dùng `limit=10` và `offset` khi gọi `/api/history` hoặc `/api/bin`; backend trả về `items`, `total`, `limit`, `offset`.
+- Icon trong nút floating là SVG inline tự tạo: ở trang lịch sử là icon thùng rác, ở thùng rác là icon lịch sử dạng vòng mũi tên/đồng hồ để quay lại.
 
 ## Build
 
