@@ -6,7 +6,7 @@ from schemas.jobs import JobStatus
 
 
 class BinItemResponse(BaseModel):
-    """Bản ghi rút gọn hiển thị cho item history đã xóa mềm."""
+    """Short item shown for soft-deleted history records."""
     id: str
     status: JobStatus
     purpose: str | None = None
@@ -15,3 +15,11 @@ class BinItemResponse(BaseModel):
     error_message: str | None = None
     deleted_at: datetime
     created_at: datetime
+
+
+class PaginatedBinResponse(BaseModel):
+    """Paginated response for /bin."""
+    items: list[BinItemResponse]
+    total: int
+    limit: int
+    offset: int
