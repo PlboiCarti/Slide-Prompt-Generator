@@ -1,315 +1,177 @@
 # Prompt Builder
 
-Prompt Builder là ứng dụng web dùng AI để tạo **Master Prompt** cho bài thuyết trình PowerPoint. Người dùng nhập mục tiêu, đối tượng, phong cách, nội dung văn bản hoặc PDF; hệ thống dùng Gemini để phân tích thiết kế, chia nội dung thành từng slide và xuất ra một prompt hoàn chỉnh có thể copy sang ChatGPT, Claude hoặc Gemini để tạo bộ slide.
+> Ứng dụng AI tự động sinh **Master Prompt** chuyên nghiệp cho bài thuyết trình PowerPoint — chỉ cần điền thông tin, nhận prompt, copy vào ChatGPT / Claude / Gemini là xong.
 
-## Mục tiêu đồ án
+---
 
-Đồ án giải quyết bài toán: người dùng không chuyên về prompt engineering vẫn có thể tạo prompt chất lượng cao để yêu cầu AI dựng slide thuyết trình. Thay vì viết prompt thủ công, người dùng chỉ cần:
+## Giới thiệu
 
-1. Đăng ký, xác thực email hoặc đăng nhập bằng Google.
-2. Điền mục đích, đối tượng, phong cách, bố cục, màu sắc và số slide.
-3. Cho AI phân tích đề xuất thiết kế.
-4. Chỉnh sửa mô tả thiết kế nếu cần.
-5. Nhập nội dung nguồn hoặc tải PDF.
-6. Nhận Master Prompt và copy sang công cụ AI khác.
+Prompt Builder giải quyết bài toán: *"Làm sao viết được prompt tốt để AI tạo slide đẹp?"*
 
-## Tính năng chính
+Thay vì tự viết prompt thủ công, người dùng chỉ cần:
+1. Điền mục đích, đối tượng, phong cách thuyết trình
+2. Paste nội dung tài liệu hoặc upload PDF
+3. Nhận **Master Prompt** hoàn chỉnh → copy vào AI bất kỳ → có ngay bộ slide
 
-### Xác thực người dùng
+---
 
-- Đăng ký bằng email và mật khẩu.
-- Xác thực email bằng token có thời hạn.
-- Đăng nhập bằng email và mật khẩu.
-- Đăng nhập Google OAuth.
-- Lưu trạng thái đăng nhập bằng JWT.
-- Hỗ trợ đọc token từ `Authorization: Bearer <token>` hoặc cookie `access_token`.
-- Hash mật khẩu bằng Argon2 qua `pwdlib`.
-- Giới hạn đăng nhập sai bằng bộ đếm in-memory.
+## Tính năng
 
 ### Sinh Master Prompt
+- Phân tích nội dung đầu vào (text hoặc PDF)
+- Sinh cấu trúc slide thông minh bằng Gemini AI
+- Chia nội dung tài liệu vào từng slide phù hợp
+- Xuất Master Prompt hoàn chỉnh, sẵn sàng copy
 
-- Phase 1: phân tích mục tiêu, đối tượng, phong cách, layout, màu sắc, ngôn ngữ để sinh mô tả thiết kế.
-- Phase 2: tạo job async để sinh cấu trúc slide, chia nội dung nguồn vào từng slide và lắp thành Master Prompt.
-- Hỗ trợ nội dung nguồn dạng text hoặc PDF.
-- Giới hạn PDF 10 MB và nội dung text 100.000 ký tự.
-- Tự tóm tắt nội dung dài trước khi chia vào slide.
-- Hỗ trợ tiếng Việt và tiếng Anh.
-- Poll trạng thái job cho đến khi hoàn tất hoặc lỗi.
+### Tùy chỉnh linh hoạt
+- **Mục đích:** pitch, report, training, proposal, awareness, demo
+- **Đối tượng:** investor, student, executive, developer, client...
+- **Phong cách:** minimalist, modern, storytelling, academic, corporate, creative, technical
+- **Bố cục:** key message, split, grid cards, timeline, big stat, full image
+- **Ngôn ngữ:** Tiếng Việt / English
+- **Màu sắc chủ đạo** tuỳ chỉnh
 
-### Quản lý lịch sử
+### Xác thực & Bảo mật
+- Đăng ký / đăng nhập bằng email + password
+- Xác thực email trước khi đăng nhập
+- Đăng nhập Google OAuth
+- JWT stateless, Argon2 password hashing
+- Rate limiting: khóa tài khoản sau 5 lần đăng nhập sai
 
-- Xem danh sách prompt đã tạo thành công.
-- Xem các job thất bại.
-- Lưu bản nháp form tạo prompt.
-- Mở lại bản nháp để tiếp tục chỉnh sửa.
-- Xóa mềm item lịch sử vào thùng rác.
-- Khôi phục item từ thùng rác.
-- Xóa vĩnh viễn từng item hoặc dọn sạch thùng rác.
+---
 
 ## Tech Stack
 
-| Phần | Công nghệ |
+| Layer | Công nghệ |
 |---|---|
-| Backend | Python, FastAPI, Uvicorn |
-| Database | SQLAlchemy ORM, SQLite mặc định, hỗ trợ Postgres qua connection string |
-| AI | Google Gemini API, mặc định `gemini-2.5-flash` |
-| Auth | JWT, Argon2, Authlib Google OAuth |
-| Email | SMTP qua `smtplib`, fallback log link xác thực ở dev |
-| PDF | `pypdf` |
-| Retry | `tenacity` |
-| Frontend | React 18, TypeScript, Vite |
-| Router | React Router v6 |
-| HTTP client | Axios |
+| **Backend** | Python 3.11, FastAPI, Uvicorn |
+| **Database** | SQLite + SQLAlchemy ORM |
+| **AI** | Google Gemini API (`gemini-2.5-flash`) |
+| **Auth** | JWT (PyJWT), Argon2 (pwdlib), Google OAuth (Authlib) |
+| **Frontend** | React 18 + TypeScript, Vite, React Router v6 |
+| **Rate Limiting** | In-memory (LoginAttemptTracker) — login & generate |
+| **PDF Parsing** | pypdf |
+| **Retry Logic** | tenacity |
 
-## Cấu trúc thư mục
+---
 
-```text
-prompt_builder/
+## Kiến trúc hệ thống
+
+```
+┌─────────────────┐        ┌──────────────────────────────────┐
+│                 │  HTTP  │  FastAPI Backend                 │
+│  React Frontend │◄──────►│                                  │
+│  (Vite :5173)   │        │  ┌──────────┐  ┌─────────────┐   │
+│                 │        │  │ Auth     │  │ Prompt      │   │
+└─────────────────┘        │  │ Router   │  │ Router      │   │
+                           │  └────┬─────┘  └──────┬──────┘   │
+                           │       │               │          │
+                           │  ┌────▼───────────────▼────────┐ │
+                           │  │        Services             │ │
+                           │  │  AuthService │ LLM Service  │ │
+                           │  └────┬─────────────┬──────────┘ │
+                           │       │             │            │
+                           │  ┌────▼──────┐  ┌───▼─────────┐  │
+                           │  │  SQLite   │  │  Gemini API │  │
+                           │  │  database │  │  (Google)   │  │
+                           │  └───────────┘  └─────────────┘  │
+                           └──────────────────────────────────┘
+```
+
+### Pipeline sinh Master Prompt
+
+```
+Input (text/PDF)
+      │
+      ▼
+[Tầng 1] Content Extractor
+  → Trích xuất text từ PDF
+  → Gộp text + PDF thành 1 chuỗi
+      │
+      ▼
+[Tầng 2] Pipeline Worker (background thread)
+  → Build instruction từ payload
+  → Gemini: sinh system_instruction + cấu trúc N slides
+  → Gemini: phân chia nội dung vào từng slide
+  → Assemble → MasterPromptResult
+      │
+      ▼
+Output: full_master_prompt (copy 1 lần vào AI khác)
+```
+
+---
+
+## Cấu trúc dự án
+
+```
+PromptBuilder/
 ├── backend/
-│   ├── main.py
+│   ├── main.py                  # Entry point FastAPI
 │   ├── requirements.txt
-│   ├── api/
-│   │   ├── auth_router.py
-│   │   ├── draft_router.py
-│   │   ├── history_router.py
-│   │   └── prompt_router.py
-│   ├── core/
-│   │   ├── dependencies.py
-│   │   ├── oauth.py
-│   │   └── security.py
+│   ├── .env                     # Config
+│   │
+│   ├── api/                     # HTTP routes
+│   │   ├── prompt_router.py     # POST /generate-description, /generate, GET /jobs/{id}
+│   │   └── auth_router.py       # Register, login, OAuth, me
+│   │
+│   ├── core/                    # Auth core
+│   │   ├── security.py          # JWT, Argon2
+│   │   ├── dependencies.py      # get_current_user
+│   │   └── oauth.py             # Authlib Google config
+│   │
 │   ├── database/
-│   │   └── connection.py
-│   ├── models/
-│   │   ├── auth_provider.py
+│   │   └── connection.py        # SQLAlchemy engine, SessionLocal
+│   │
+│   ├── models/                  # SQLAlchemy models
 │   │   ├── job.py
-│   │   └── user.py
-│   ├── schemas/
-│   │   ├── auth.py
-│   │   ├── bin.py
+│   │   ├── user.py
+│   │   └── auth_provider.py     # LOCAL / GOOGLE provider
+│   │
+│   ├── schemas/                 # Pydantic schemas
 │   │   ├── jobs.py
-│   │   └── prompt.py
-│   ├── services/
-│   │   ├── auth_service.py
-│   │   ├── content_extractor.py
-│   │   ├── email_service.py
-│   │   ├── job_history_service.py
-│   │   └── llm_service.py
-│   ├── utils/
-│   │   ├── config.py
-│   │   └── rate_limiter.py
-│   └── workers/
-│       └── pipeline_worker.py
-├── frontend/
-│   ├── package.json
-│   ├── vite.config.ts
-│   └── src/
-│       ├── App.tsx
-│       ├── main.tsx
-│       ├── components/
-│       │   └── ProtectedRoute.tsx
-│       ├── context/
-│       │   └── AuthContext.tsx
-│       ├── pages/
-│       │   ├── CallbackPage.tsx
-│       │   ├── GeneratePage.tsx
-│       │   ├── HistoryPage.tsx
-│       │   ├── LoginPage.tsx
-│       │   └── RegisterPage.tsx
-│       └── services/
-│           └── api.ts
-├── deploy.md
-├── cach_push.md
-├── main.py
-└── readme.md
+│   │   ├── prompt.py
+│   │   └── auth.py
+│   │
+│   ├── services/                # Business logic
+│   │   ├── auth_service.py      # Register, login, Google OAuth
+│   │   ├── llm_service.py       # Gemini: sinh Master Prompt
+│   │   ├── content_extractor.py # Text + PDF extraction
+│   │   └── email_service.py     # SMTP hoặc console fallback
+│   │
+│   ├── workers/
+│   │   └── pipeline_worker.py   # Background thread pipeline
+│   │
+│   └── utils/
+│       ├── config.py            # Settings (pydantic-settings)
+│       └── rate_limiter.py      # Login & generate attempt tracker
+│
+└── frontend/
+    ├── package.json
+    ├── vite.config.ts
+    └── src/
+        ├── App.tsx              # Router setup
+        ├── main.tsx
+        ├── index.css
+        ├── services/
+        │   └── api.ts           # axios instance + auth/prompt API calls
+        ├── context/
+        │   └── AuthContext.tsx  # Global auth state
+        ├── pages/
+        │   ├── LoginPage.tsx
+        │   ├── RegisterPage.tsx
+        │   ├── GeneratePage.tsx # Prompt Builder UI (2 Phase)
+        │   └── CallbackPage.tsx # Google OAuth callback
+        └── components/
+            └── ProtectedRoute.tsx
 ```
 
-Ghi chú: `backend/main.py` là entry point đầy đủ hiện tại, có đăng ký router prompt, auth, history và draft. File `main.py` ở thư mục gốc là entry point cũ hoặc bản rút gọn, chưa có đầy đủ router mới.
+---
 
-## Kiến trúc tổng quan
+## Cài đặt & Chạy
 
-```text
-React/Vite frontend
-    |
-    | HTTP + JWT/cookie
-    v
-FastAPI backend
-    |
-    ├── Auth routes: register, login, verify email, Google OAuth, me, logout
-    ├── Prompt routes: generate-description, generate, jobs/{id}
-    ├── Draft routes: save, update, get draft
-    ├── History routes: list, soft delete
-    └── Bin routes: list, restore, hard delete, empty bin
-    |
-    ├── SQLAlchemy database
-    ├── Background thread pipeline
-    └── Gemini API
-```
-
-## Luồng sinh Master Prompt
-
-```text
-Thông tin form
-    |
-    v
-POST /api/generate-description
-    |
-    v
-Gemini sinh DesignDescription:
-tone, font, key_message_rule, density, visual
-    |
-    v
-Người dùng chỉnh sửa mô tả thiết kế
-    |
-    v
-Text/PDF + form + description
-    |
-    v
-POST /api/generate
-    |
-    v
-Tạo Job PENDING trong DB
-    |
-    v
-Background thread:
-PROCESSING
-    |
-    ├── dùng description từ Phase 1 hoặc tự sinh nếu thiếu
-    ├── sinh cấu trúc slide
-    ├── trích xuất và chia nội dung vào từng slide
-    └── assemble MasterPromptResult
-    |
-    v
-COMPLETED hoặc FAILED
-    |
-    v
-Frontend poll GET /api/jobs/{job_id}
-```
-
-## Database Models
-
-### User
-
-Lưu người dùng:
-
-- `id`: UUID string.
-- `email`: duy nhất.
-- `username`: tùy chọn.
-- `is_email_verified`: trạng thái xác thực email.
-- `is_active`: trạng thái tài khoản.
-- `email_verification_token`: token xác thực email.
-- `email_verification_expires_at`: thời điểm hết hạn token.
-- `created_at`, `updated_at`.
-
-### AuthProvider
-
-Lưu phương thức đăng nhập của user:
-
-- `provider`: `local` hoặc `google`.
-- `provider_user_id`: ID từ provider bên ngoài, ví dụ Google sub.
-- `password_hash`: chỉ dùng với provider local.
-
-Một user có thể có nhiều provider.
-
-### Job
-
-Lưu job sinh prompt, lịch sử, bản nháp và thùng rác:
-
-- `id`: UUID string.
-- `status`: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`, `DRAFT`.
-- `input_payload`: JSON input.
-- `result_payload`: JSON kết quả khi hoàn tất.
-- `error_message`: lỗi nếu job thất bại.
-- `deleted_at`: `NULL` là active, có giá trị là đã vào thùng rác.
-- `user_id`: chủ sở hữu.
-- `created_at`, `updated_at`.
-
-## API Endpoints
-
-### Authentication
-
-| Method | Endpoint | Auth | Mô tả |
-|---|---|---|---|
-| `POST` | `/api/auth/register` | Không | Đăng ký email/password, tạo token xác thực email |
-| `POST` | `/api/auth/login` | Không | Đăng nhập và trả JWT |
-| `GET` | `/api/auth/verify-email?token=...` | Không | Xác thực email rồi redirect về frontend |
-| `GET` | `/api/auth/google` | Không | Bắt đầu Google OAuth |
-| `GET` | `/api/auth/google/callback` | Không | Callback Google OAuth, set cookie và redirect |
-| `GET` | `/api/auth/me` | Có | Lấy user hiện tại |
-| `POST` | `/api/auth/logout` | Có | Xóa cookie `access_token` |
-
-### Prompt Generation
-
-| Method | Endpoint | Auth | Mô tả |
-|---|---|---|---|
-| `POST` | `/api/generate-description` | Có | Phase 1, sinh mô tả thiết kế đồng bộ |
-| `POST` | `/api/generate` | Có | Phase 2, tạo job sinh Master Prompt |
-| `GET` | `/api/jobs/{job_id}` | Có | Poll trạng thái job của user hiện tại |
-
-`POST /api/generate-description` nhận JSON:
-
-```json
-{
-  "purpose": "Báo cáo doanh số Q1",
-  "audience": "Ban lãnh đạo",
-  "style": "modern",
-  "primary_layout": "key_message",
-  "primary_color": "#667eea",
-  "language": "vi"
-}
-```
-
-`POST /api/generate` nhận `multipart/form-data`:
-
-- `purpose`
-- `audience`
-- `style`
-- `primary_color`
-- `slide_count`
-- `primary_layout`
-- `language`
-- `content`
-- `pdf_file`
-- `desc_tone`
-- `desc_font`
-- `desc_key_message_rule`
-- `desc_density`
-- `desc_visual`
-
-Nếu một trong các field `desc_*` được gửi thì phải gửi đủ cả 5 field. Nếu để trống toàn bộ, backend tự sinh description trong background job.
-
-### History, Draft, Bin
-
-| Method | Endpoint | Auth | Mô tả |
-|---|---|---|---|
-| `GET` | `/api/history` | Có | Lấy lịch sử active, có thể lọc theo `status` |
-| `DELETE` | `/api/history/{job_id}` | Có | Xóa mềm item vào thùng rác |
-| `POST` | `/api/drafts` | Có | Lưu bản nháp mới |
-| `PUT` | `/api/drafts/{job_id}` | Có | Cập nhật bản nháp |
-| `GET` | `/api/drafts/{job_id}` | Có | Lấy dữ liệu bản nháp để mở lại form |
-| `GET` | `/api/bin` | Có | Lấy danh sách item trong thùng rác |
-| `POST` | `/api/bin/{job_id}/restore` | Có | Khôi phục item từ thùng rác |
-| `DELETE` | `/api/bin/{job_id}` | Có | Xóa vĩnh viễn một item |
-| `DELETE` | `/api/bin` | Có | Dọn sạch thùng rác |
-
-## Frontend Routes
-
-| Route | Mô tả |
-|---|---|
-| `/login` | Đăng nhập email/password hoặc Google |
-| `/register` | Đăng ký tài khoản |
-| `/auth/callback` | Xử lý callback sau Google OAuth |
-| `/generate` | Màn tạo Master Prompt, yêu cầu đăng nhập |
-| `/history` | Lịch sử, bản nháp, job lỗi và thùng rác |
-| `/bin` | Redirect về `/history` |
-| `/` | Redirect về `/generate` |
-
-## Cài đặt và chạy local
-
-### Yêu cầu
-
-- Python 3.11 hoặc mới hơn.
-- Node.js 18 hoặc mới hơn.
-- Gemini API key.
+### Yêu cầu hệ thống
+- Python 3.11+
+- Node.js 18+
 
 ### Backend
 
@@ -319,6 +181,8 @@ python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn main:app --reload
+# → http://localhost:8000
+# → API docs: http://localhost:8000/docs
 ```
 
 Backend chạy mặc định tại:
@@ -332,29 +196,23 @@ Backend chạy mặc định tại:
 cd frontend
 npm install
 npm run dev
+# → http://localhost:3000
 ```
 
-Frontend chạy tại:
+---
 
-- `http://localhost:3000`
+## Cấu hình (.env)
 
-Vite dev server đã cấu hình proxy `/api` sang `http://localhost:8000`.
-
-## Cấu hình môi trường backend
-
-Tạo file `.env` trong thư mục `backend/` khi chạy backend từ `backend`.
-
-```env
-ENVIRONMENT=development
-
-SQLALCHEMY_DATABASE_URL=sqlite:///./prompt_builder.db
-
+```dotenv
+# Gemini AI
 GEMINI_API_KEY=your_gemini_api_key
 LLM_MODEL=gemini-2.5-flash
-MIN_SLIDES_LIMIT=3
-MAX_SLIDES_LIMIT=30
 
-JWT_SECRET_KEY=dev_only_secret_key_change_in_production_2025
+# Database (SQLite)
+SQLALCHEMY_DATABASE_URL=sqlite:///./database.db
+
+# JWT (tạo key: python -c "import secrets; print(secrets.token_hex(32))")
+JWT_SECRET_KEY=your_secret_key_min_32_chars
 JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
@@ -370,82 +228,54 @@ MAX_LOGIN_ATTEMPTS=5
 LOCKOUT_MINUTES=15
 MAX_GENERATE_ATTEMPTS=5
 GENERATE_LOCKOUT_MINUTES=10
-
-EMAIL_VERIFY_TTL_HOURS=24
-
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=
-SMTP_PASSWORD=
-SMTP_FROM_EMAIL=
-SMTP_FROM_NAME=Prompt Builder
 ```
 
-Nếu không cấu hình SMTP, backend không gửi email thật mà log link xác thực ra console. Khi deploy production, phải đổi `JWT_SECRET_KEY` mạnh hơn và set `ENVIRONMENT=production`.
+---
 
-## Cấu hình môi trường frontend
+## API Endpoints
 
-Frontend đọc API URL từ biến:
+### Authentication
 
-```env
-VITE_API_URL=http://localhost:8000/api
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| POST | `/api/auth/register` | Đăng ký email/password |
+| POST | `/api/auth/login` | Đăng nhập, nhận JWT |
+| GET | `/api/auth/verify-email?token=` | Xác thực email |
+| GET | `/api/auth/google` | Bắt đầu Google OAuth |
+| GET | `/api/auth/google/callback` | Google OAuth callback |
+| GET | `/api/auth/me` | Thông tin user hiện tại (yêu cầu auth) |
+| POST | `/api/auth/logout` | Đăng xuất |
+
+### Prompt Generation
+
+| Method | Endpoint | Auth | Mô tả |
+|--------|----------|------|-------|
+| POST | `/api/generate-description` | **Bắt buộc** | Phase 1 — phân tích & gợi ý thiết kế (sync, ~3–5s) |
+| POST | `/api/generate` | **Bắt buộc** | Phase 2 — tạo job sinh Master Prompt (async) |
+| GET | `/api/jobs/{job_id}` | Không | Kiểm tra trạng thái job |
+
+### Job Status
+
+```
+PENDING → PROCESSING → COMPLETED
+                     ↘ FAILED
 ```
 
-Nếu không set, frontend mặc định dùng `http://localhost:8000/api`.
+---
 
-## Script frontend
+## Lưu ý phát triển
 
-```bash
-npm run dev
-npm run build
-npm run preview
-```
+| Vấn đề | Giải thích |
+|---|---|
+| Verify token mất sau restart | Token xác thực email lưu in-memory. Restart uvicorn → phải register lại. |
+| Rate limit reset khi restart | Bộ đếm đăng nhập sai & generate cũng in-memory, reset khi restart. |
+| Rate limit generate | `MAX_GENERATE_ATTEMPTS=5` / `GENERATE_LOCKOUT_MINUTES=10` — giới hạn số lần tạo prompt liên tiếp theo user. |
+| Gemini rate limit | `gemini-2.5-flash`: 5 req/phút. Pipeline có delay để tránh lỗi 429. |
+| Google OAuth cần cấu hình | Phải thêm redirect URI vào Google Cloud Console. |
+| Phase 1 & 2 đều cần auth | Cả `POST /api/generate-description` và `POST /api/generate` đều yêu cầu Bearer token. Rate limit 5 lần/10 phút theo user, dùng chung quota. |
 
-`npm run build` chạy TypeScript compile trước, sau đó build Vite.
-
-## Kiểm tra nhanh
-
-Backend:
-
-```bash
-cd backend
-python -m compileall .
-```
-
-Frontend:
-
-```bash
-cd frontend
-npm run build
-```
-
-## Lưu ý kỹ thuật
-
-- Rate limit login và generate đang dùng in-memory, nên sẽ reset khi server restart.
-- Background job chạy bằng daemon thread, phù hợp demo hoặc single-server, chưa phải queue bền vững như Celery/RQ.
-- SQLite phù hợp local/dev. Khi deploy nên dùng Postgres vì nhiều hosting có filesystem ephemeral.
-- `create_tables()` tự tạo bảng khi FastAPI startup, chưa dùng migration tool như Alembic.
-- Google OAuth cần cấu hình redirect URI đúng trong Google Cloud Console.
-- Cookie OAuth dùng `secure=True` khi `ENVIRONMENT=production`.
-- Các thao tác history, draft, bin đều kiểm tra `user_id` để không đọc hoặc sửa dữ liệu của user khác.
-- `.env`, database local, `node_modules`, `dist`, `venv` và log đã được ignore trong `.gitignore`.
-
-## Deploy
-
-Xem chi tiết trong [deploy.md](deploy.md).
-
-Tóm tắt:
-
-- Frontend có thể deploy lên Vercel hoặc static hosting sau khi chạy `npm run build`.
-- Backend cần persistent process chạy `uvicorn main:app --host 0.0.0.0 --port $PORT`.
-- Database production nên dùng Postgres, ví dụ Neon, Railway Postgres hoặc Render Postgres.
-- Cần set `FRONTEND_URL`, `ALLOWED_ORIGINS`, `BASE_URL`, `GOOGLE_REDIRECT_URI`, `VITE_API_URL` theo domain thật.
-
-## Tài liệu phụ
-
-- [deploy.md](deploy.md): hướng dẫn deploy và biến môi trường production.
-- [cach_push.md](cach_push.md): hướng dẫn merge và push nhánh Git.
+---
 
 ## Tác giả
 
-Đồ án môn học phát triển bởi nhóm sinh viên.
+Đồ án môn học — phát triển bởi nhóm sinh viên.
