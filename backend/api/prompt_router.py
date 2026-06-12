@@ -34,6 +34,96 @@ from workers.pipeline_worker import run_pipeline_in_thread
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+_ALLOWED_FILE_SIGNATURES = {
+    ".pdf": {
+        "label": "PDF",
+        "mime_types": {"application/pdf", "application/x-pdf"},
+    },
+    ".png": {
+        "label": "PNG",
+        "mime_types": {"image/png"},
+    },
+    ".jpg": {
+        "label": "JPEG",
+        "mime_types": {"image/jpeg", "image/jpg"},
+    },
+    ".jpeg": {
+        "label": "JPEG",
+        "mime_types": {"image/jpeg", "image/jpg"},
+    },
+    ".webp": {
+        "label": "WEBP",
+        "mime_types": {"image/webp"},
+    },
+}
+
+
+def _detect_file_type(header: bytes) -> str | None:
+    if header.startswith(b"%PDF-"):
+        return ".pdf"
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if header.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        return ".webp"
+    return None
+
+
+def _same_upload_type(expected_ext: str, detected_ext: str) -> bool:
+    if expected_ext in {".jpg", ".jpeg"} and detected_ext == ".jpg":
+        return True
+    return expected_ext == detected_ext
+
+
+async def _validate_upload_file(upload: UploadFile) -> str:
+    original_name = Path(upload.filename or "").name
+    ext = Path(original_name).suffix.lower()
+
+    if not original_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File upload thiếu tên file.",
+        )
+
+    allowed = _ALLOWED_FILE_SIGNATURES.get(ext)
+    if not allowed:
+        allowed_exts = ", ".join(sorted(_ALLOWED_FILE_SIGNATURES))
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"File '{original_name}' không được hỗ trợ. Chỉ cho phép: {allowed_exts}.",
+        )
+
+    content_type = (upload.content_type or "").split(";")[0].strip().lower()
+    if content_type and content_type != "application/octet-stream":
+        if content_type not in allowed["mime_types"]:
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=(
+                    f"File '{original_name}' có MIME type không hợp lệ: {content_type}. "
+                    f"Duoi {ext} phải là {', '.join(sorted(allowed['mime_types']))}."
+                ),
+            )
+
+    header = await upload.read(16)
+    await upload.seek(0)
+    detected_ext = _detect_file_type(header)
+    if not detected_ext:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Không xác định được định dạng thật của file '{original_name}'.",
+        )
+    if not _same_upload_type(ext, detected_ext):
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=(
+                f"File '{original_name}' có nội dung không khớp với đuôi file. "
+                f"Hệ thống phát hiện định dạng thật là {detected_ext}."
+            ),
+        )
+
+    return ext
+
 # Tên hiển thị cho từng desc field để thông báo lỗi rõ ràng hơn
 _DESC_FIELD_LABELS = {
     "tone":             "desc_tone (giọng điệu / tông văn bản)",
@@ -42,7 +132,6 @@ _DESC_FIELD_LABELS = {
     "density":          "desc_density (mật độ thông tin trên slide)",
     "visual":           "desc_visual (yếu tố hình ảnh / màu sắc minh hoạ)",
 }
-
 
 # ══════════════════════════════════════════════════════════════════════
 # PHASE 1 — Sinh mô tả thiết kế (synchronous)
@@ -161,6 +250,12 @@ async def generate(
         )
 
     # Build description_dict từ 5 field riêng lẻ
+    validated_files: list[tuple[UploadFile, str]] = []
+    if has_valid_files:
+        for upload in valid_files:
+            ext = await _validate_upload_file(upload)
+            validated_files.append((upload, ext))
+
     description_dict: dict = {}
     desc_fields = {
         "tone":             desc_tone.strip(),
@@ -204,9 +299,7 @@ async def generate(
     if has_valid_files:
         upload_dir = Path(f"uploads/{job_id}")
         upload_dir.mkdir(parents=True, exist_ok=True)
-        for f in valid_files:
-            original_name = Path(f.filename).name
-            ext = Path(original_name).suffix.lower()
+        for f, ext in validated_files:
             file_path = upload_dir / f"{uuid4().hex}{ext}"
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(f.file, buffer)
