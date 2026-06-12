@@ -59,7 +59,11 @@ def extract_content_from_files(
                 parts.append(img_text.strip())
                 logger.info(f"Image input: {len(img_text)} ký tự từ '{file_path}'")
         else:
-            logger.warning(f"Bỏ qua định dạng file không hỗ trợ: {ext}")
+            logger.warning("File rejected: unsupported extension path=%s ext=%s", file_path, ext)
+            raise ValueError(
+                "File không đúng định dạng cho phép. "
+                "Vui lòng tải lên PDF, PNG, JPG hoặc WEBP."
+            )
 
     if not parts:
         raise ValueError("Không có nội dung — vui lòng cung cấp text hoặc file hợp lệ.")

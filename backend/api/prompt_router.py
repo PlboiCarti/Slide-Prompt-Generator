@@ -6,7 +6,6 @@ Luồng 2 giai đoạn:
   Phase 2: POST /api/generate              → async background job, client poll
 """
 from __future__ import annotations
-from distutils import file_util
 
 import json
 import logging
