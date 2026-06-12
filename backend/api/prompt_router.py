@@ -13,6 +13,7 @@ import logging
 import shutil
 from pathlib import Path
 from datetime import datetime
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
@@ -204,7 +205,9 @@ async def generate(
         upload_dir = Path(f"uploads/{job_id}")
         upload_dir.mkdir(parents=True, exist_ok=True)
         for f in valid_files:
-            file_path = upload_dir / f.filename
+            original_name = Path(f.filename).name
+            ext = Path(original_name).suffix.lower()
+            file_path = upload_dir / f"{uuid4().hex}{ext}"
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(f.file, buffer)
             file_paths.append(str(file_path))
