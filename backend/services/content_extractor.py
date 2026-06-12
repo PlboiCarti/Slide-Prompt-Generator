@@ -31,8 +31,16 @@ def extract_content_from_files(
     for file_path in file_paths:
         file_size = os.path.getsize(file_path)
         if file_size > MAX_FILE_SIZE:
-            logger.warning(f"File {file_path} quá lớn ({file_size} bytes, max {MAX_FILE_SIZE}).")
-            continue
+            logger.warning(
+                "File rejected: file too large path=%s size=%s max_size=%s",
+                file_path,
+                file_size,
+                MAX_FILE_SIZE,
+            )
+            raise ValueError(
+                f"File vượt quá giới hạn dung lượng cho phép. "
+                f"Vui lòng tải lên file nhỏ hơn {MAX_FILE_SIZE // 1024 // 1024}MB."
+            )
 
         ext = os.path.splitext(file_path)[1].lower()
         if ext in (".pdf", ".x-pdf"):
