@@ -56,6 +56,10 @@ _ALLOWED_FILE_SIGNATURES = {
         "mime_types": {"image/webp"},
     },
 }
+_UNSUPPORTED_FILE_DETAIL = (
+    "File không đúng định dạng cho phép. "
+    "Vui lòng tải lên PDF, PNG, JPG hoặc WEBP."
+)
 
 
 def _detect_file_type(header: bytes) -> str | None:
@@ -81,45 +85,61 @@ async def _validate_upload_file(upload: UploadFile) -> str:
     ext = Path(original_name).suffix.lower()
 
     if not original_name:
+        logger.warning("Upload rejected: missing filename")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File upload thiếu tên file.",
+            detail=_UNSUPPORTED_FILE_DETAIL,
         )
 
     allowed = _ALLOWED_FILE_SIGNATURES.get(ext)
     if not allowed:
-        allowed_exts = ", ".join(sorted(_ALLOWED_FILE_SIGNATURES))
+        logger.warning("Upload rejected: unsupported extension filename=%s ext=%s", original_name, ext)
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"File '{original_name}' không được hỗ trợ. Chỉ cho phép: {allowed_exts}.",
+            detail=_UNSUPPORTED_FILE_DETAIL,
         )
 
     content_type = (upload.content_type or "").split(";")[0].strip().lower()
     if content_type and content_type != "application/octet-stream":
         if content_type not in allowed["mime_types"]:
+            logger.warning(
+                "Upload rejected: invalid MIME filename=%s ext=%s content_type=%s expected=%s",
+                original_name,
+                ext,
+                content_type,
+                sorted(allowed["mime_types"]),
+            )
             raise HTTPException(
                 status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                detail=(
-                    f"File '{original_name}' có MIME type không hợp lệ: {content_type}. "
-                    f"Duoi {ext} phải là {', '.join(sorted(allowed['mime_types']))}."
-                ),
+                detail=_UNSUPPORTED_FILE_DETAIL,
             )
 
     header = await upload.read(16)
     await upload.seek(0)
     detected_ext = _detect_file_type(header)
     if not detected_ext:
+        logger.warning(
+            "Upload rejected: unknown signature filename=%s ext=%s content_type=%s header=%r",
+            original_name,
+            ext,
+            content_type,
+            header,
+        )
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Không xác định được định dạng thật của file '{original_name}'.",
+            detail=_UNSUPPORTED_FILE_DETAIL,
         )
     if not _same_upload_type(ext, detected_ext):
+        logger.warning(
+            "Upload rejected: extension/signature mismatch filename=%s ext=%s detected_ext=%s content_type=%s",
+            original_name,
+            ext,
+            detected_ext,
+            content_type,
+        )
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=(
-                f"File '{original_name}' có nội dung không khớp với đuôi file. "
-                f"Hệ thống phát hiện định dạng thật là {detected_ext}."
-            ),
+            detail=_UNSUPPORTED_FILE_DETAIL,
         )
 
     return ext
