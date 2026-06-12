@@ -10,6 +10,7 @@ from distutils import file_util
 
 import json
 import logging
+import os
 import shutil
 from pathlib import Path
 from datetime import datetime
@@ -27,6 +28,7 @@ from models.job import Job
 from models.user import User
 from schemas.jobs import GenerateResponse, JobStatusResponse
 from schemas.prompt import DescribeRequest, DesignDescription
+from services.content_extractor import MAX_FILE_SIZE
 from services.llm_service import generate_design_description
 from utils.rate_limiter import generate_tracker
 from workers.pipeline_worker import run_pipeline_in_thread
@@ -59,6 +61,10 @@ _ALLOWED_FILE_SIGNATURES = {
 _UNSUPPORTED_FILE_DETAIL = (
     "File không đúng định dạng cho phép. "
     "Vui lòng tải lên PDF, PNG, JPG hoặc WEBP."
+)
+_FILE_TOO_LARGE_DETAIL = (
+    f"File vượt quá giới hạn dung lượng cho phép. "
+    f"Vui lòng tải lên file nhỏ hơn {MAX_FILE_SIZE // 1024 // 1024}MB."
 )
 
 
@@ -97,6 +103,21 @@ async def _validate_upload_file(upload: UploadFile) -> str:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail=_UNSUPPORTED_FILE_DETAIL,
+        )
+
+    upload.file.seek(0, os.SEEK_END)
+    file_size = upload.file.tell()
+    await upload.seek(0)
+    if file_size > MAX_FILE_SIZE:
+        logger.warning(
+            "Upload rejected: file too large filename=%s size=%s max_size=%s",
+            original_name,
+            file_size,
+            MAX_FILE_SIZE,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=_FILE_TOO_LARGE_DETAIL,
         )
 
     content_type = (upload.content_type or "").split(";")[0].strip().lower()
