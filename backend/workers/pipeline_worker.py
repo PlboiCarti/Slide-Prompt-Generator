@@ -60,7 +60,7 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
     slide_count    = payload.get("slide_count", 6)
     primary_layout = payload.get("primary_layout", "")
     language       = payload.get("language", "vi")
-    content        = payload.get("content", "")
+    raw_content    = payload.get("raw_content", "")
     description_dict = payload.get("description", {})  # từ Phase 1, user đã chỉnh
     file_paths     = payload.get("file_paths", [])
 
@@ -72,9 +72,10 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
         logger.info(f"[{job_id[:8]}] PROCESSING | purpose='{purpose[:40]}'")
 
         from services.content_extractor import extract_content_from_files
-        if file_paths or content.strip():
+        # raw_content la text goc tu form; final_content la ket qua da gop text + file/OCR.
+        if file_paths or raw_content.strip():
             try:
-                final_content = extract_content_from_files(content, file_paths)
+                final_content = extract_content_from_files(raw_content, file_paths)
             except Exception as e:
                 logger.error(f"[{job_id[:8]}] Lỗi extract content: {e}")
                 raise ValueError(f"Lỗi đọc nội dung file: {e}")

@@ -6,6 +6,7 @@ Luồng 2 giai đoạn:
   Phase 2: POST /api/generate              → async background job, client poll
 """
 from __future__ import annotations
+from distutils import file_util
 
 import json
 import logging
@@ -186,29 +187,19 @@ async def generate(
     # Ghi nhận attempt SAU KHI validate xong — tránh hao slot vì lỗi form
     generate_tracker.record_failed_attempt(current_user.id)
 
-    payload = {
-        "purpose":        purpose,
-        "audience":       audience,
-        "style":          style,
-        "primary_color":  primary_color,
-        "slide_count":    slide_count,
-        "primary_layout": primary_layout,
-        "language":       language,
-        "content":        content,
-        "description":    description_dict,  # dict (có thể rỗng)
-    }
-
+    # Khởi tạo Job trước để lấy ID (tạm thời để input_payload rỗng hoặc cơ bản)
     job = Job(
         user_id=current_user.id,
-        input_payload=json.dumps(payload, ensure_ascii=False),
+        input_payload="{}", # Sẽ cập nhật sau
         status="PENDING",
     )
     db.add(job)
-    db.commit()
-    db.refresh(job)
+    db.flush() # Dùng flush() thay vì commit() để lấy ID mà chưa chốt transaction
 
     job_id = str(job.id)
     file_paths = []
+
+
     if has_valid_files:
         upload_dir = Path(f"uploads/{job_id}")
         upload_dir.mkdir(parents=True, exist_ok=True)
@@ -217,8 +208,25 @@ async def generate(
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(f.file, buffer)
             file_paths.append(str(file_path))
-            
-    payload["file_paths"] = file_paths
+
+    # Worker se tao final_content bang cach gop raw_content voi noi dung doc tu file_paths.
+    payload = {
+        "purpose":        purpose,
+        "audience":       audience,
+        "style":          style,
+        "primary_color":  primary_color,
+        "slide_count":    slide_count,
+        "primary_layout": primary_layout,
+        "language":       language,
+        "raw_content":    content,
+        "file_paths":     file_paths,
+        "description":    description_dict,  # dict (có thể rỗng)
+    }
+
+    # Cập nhật lại job và commit
+    job.input_payload = json.dumps(payload, ensure_ascii=False)
+    db.commit()
+    db.refresh(job)
 
     logger.info(
         f"Job created: {job_id[:8]} | purpose='{purpose[:40]}' | "
