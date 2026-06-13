@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     SMTP_FROM_EMAIL: str = ""        # email người gửi hiển thị
     SMTP_FROM_NAME: str = "Prompt Builder"
 
+    # ── OCR (Tesseract/Poppler) ─────────────────────────────────────────
+    # Để trống = dùng binary trong PATH (mặc định trên Linux/Docker).
+    # Set giá trị nếu Tesseract/Poppler không nằm trong PATH (vd: Windows).
+    TESSERACT_CMD: str = ""   # vd: C:\Program Files\Tesseract-OCR\tesseract.exe
+    POPPLER_PATH: str = ""    # vd: C:\poppler\Library\bin
+
     @model_validator(mode="after")
     def check_production_secrets(self) -> "Settings":
         if self.is_production and "dev_only" in self.JWT_SECRET_KEY:
