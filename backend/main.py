@@ -15,6 +15,7 @@ from api.history_router import router as history_router
 from api.prompt_router import router as prompt_router
 from database.connection import create_tables
 from utils.config import get_settings
+from utils.upload_cleanup import cleanup_uploads_dir
 
 _settings = get_settings()
 
@@ -32,6 +33,9 @@ async def lifespan(app: FastAPI):
     # ── Startup ───────────────────────────────────────────────────
     create_tables()
     logger.info("✓ DB ready | http://localhost:8000/docs")
+    deleted_upload_dirs = cleanup_uploads_dir(ttl_hours=24)
+    if deleted_upload_dirs:
+        logger.info("Deleted %s stale upload directories", deleted_upload_dirs)
 
     yield
 

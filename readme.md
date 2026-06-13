@@ -1,281 +1,289 @@
 # Prompt Builder
 
-> Ứng dụng AI tự động sinh **Master Prompt** chuyên nghiệp cho bài thuyết trình PowerPoint — chỉ cần điền thông tin, nhận prompt, copy vào ChatGPT / Claude / Gemini là xong.
+Ứng dụng web hỗ trợ tạo **Master Prompt** cho bài thuyết trình PowerPoint. Người dùng nhập mục đích, đối tượng, phong cách, nội dung hoặc file tài liệu (PDF/ảnh); hệ thống dùng AI (Gemini) để phân tích và sinh ra một prompt hoàn chỉnh, có thể dán vào ChatGPT, Claude, Gemini hoặc công cụ AI khác để tạo slide.
 
----
+> Hướng dẫn cài đặt chi tiết (bao gồm cài Tesseract OCR và Poppler): xem [QUICK_START.md](./QUICK_START.md).
 
-## Giới thiệu
+## Mục lục
 
-Prompt Builder giải quyết bài toán: *"Làm sao viết được prompt tốt để AI tạo slide đẹp?"*
+- [Tính năng chính](#tính-năng-chính)
+- [Công nghệ sử dụng](#công-nghệ-sử-dụng)
+- [Kiến trúc tổng thể](#kiến-trúc-tổng-thể)
+- [Luồng xử lý chính](#luồng-xử-lý-chính)
+- [Cấu trúc thư mục](#cấu-trúc-thư-mục)
+- [Bắt đầu nhanh](#bắt-đầu-nhanh)
+- [Cấu hình môi trường (.env)](#cấu-hình-môi-trường-env)
+- [API Endpoints](#api-endpoints)
+- [Ghi chú phát triển và giới hạn hiện tại](#ghi-chú-phát-triển-và-giới-hạn-hiện-tại)
+- [License](#license)
 
-Thay vì tự viết prompt thủ công, người dùng chỉ cần:
-1. Điền mục đích, đối tượng, phong cách thuyết trình
-2. Paste nội dung tài liệu hoặc upload PDF
-3. Nhận **Master Prompt** hoàn chỉnh → copy vào AI bất kỳ → có ngay bộ slide
+## Tính năng chính
 
----
+- Đăng ký, đăng nhập bằng email và mật khẩu.
+- Xác thực email trước khi sử dụng tài khoản.
+- Đăng nhập bằng Google OAuth.
+- Sinh mô tả thiết kế slide ở giai đoạn 1 để người dùng xem và chỉnh sửa.
+- Sinh Master Prompt ở giai đoạn 2 bằng background job.
+- Upload nội dung từ PDF hoặc ảnh PNG, JPG, JPEG, WEBP (tối đa 10MB/file).
+- Trích xuất nội dung từ tài liệu, hỗ trợ OCR song ngữ Việt/Anh cho file scan.
+- Lưu lịch sử các lần tạo prompt, lưu bản nháp form tạo prompt.
+- Xóa mềm vào thùng rác, khôi phục hoặc xóa vĩnh viễn.
+- Giới hạn số lần đăng nhập sai và số lần tạo prompt để giảm spam.
 
-## Tính năng
+## Công nghệ sử dụng
 
-### Sinh Master Prompt
-- Phân tích nội dung đầu vào (text hoặc PDF)
-- Sinh cấu trúc slide thông minh bằng Gemini AI
-- Chia nội dung tài liệu vào từng slide phù hợp
-- Xuất Master Prompt hoàn chỉnh, sẵn sàng copy
-
-### Tùy chỉnh linh hoạt
-- **Mục đích:** pitch, report, training, proposal, awareness, demo
-- **Đối tượng:** investor, student, executive, developer, client...
-- **Phong cách:** minimalist, modern, storytelling, academic, corporate, creative, technical
-- **Bố cục:** key message, split, grid cards, timeline, big stat, full image
-- **Ngôn ngữ:** Tiếng Việt / English
-- **Màu sắc chủ đạo** tuỳ chỉnh
-
-### Xác thực & Bảo mật
-- Đăng ký / đăng nhập bằng email + password
-- Xác thực email trước khi đăng nhập
-- Đăng nhập Google OAuth
-- JWT stateless, Argon2 password hashing
-- Rate limiting: khóa tài khoản sau 5 lần đăng nhập sai
-
----
-
-## Tech Stack
-
-| Layer | Công nghệ |
+| Thành phần | Công nghệ |
 |---|---|
-| **Backend** | Python 3.11, FastAPI, Uvicorn |
-| **Database** | SQLite + SQLAlchemy ORM |
-| **AI** | Google Gemini API (`gemini-2.5-flash`) |
-| **Auth** | JWT (PyJWT), Argon2 (pwdlib), Google OAuth (Authlib) |
-| **Frontend** | React 18 + TypeScript, Vite, React Router v6 |
-| **Rate Limiting** | In-memory (LoginAttemptTracker) — login & generate |
-| **PDF Parsing** | pypdf |
-| **Retry Logic** | tenacity |
+| Backend | Python, FastAPI, Uvicorn |
+| Frontend | React 18, TypeScript, Vite |
+| Routing frontend | React Router DOM |
+| Gọi API frontend | Axios |
+| Cơ sở dữ liệu | SQLAlchemy, mặc định SQLite |
+| AI | Google Gemini API |
+| Xác thực | JWT, Argon2, Google OAuth (Authlib) |
+| Email | SMTP hoặc in link xác thực ra console khi dev |
+| Xử lý PDF | pypdf, pdf2image |
+| OCR | Tesseract OCR (pytesseract), Pillow, Poppler |
+| Retry | tenacity |
 
----
+## Kiến trúc tổng thể
 
-## Kiến trúc hệ thống
-
-```
-┌─────────────────┐        ┌──────────────────────────────────┐
-│                 │  HTTP  │  FastAPI Backend                 │
-│  React Frontend │◄──────►│                                  │
-│  (Vite :5173)   │        │  ┌──────────┐  ┌─────────────┐   │
-│                 │        │  │ Auth     │  │ Prompt      │   │
-└─────────────────┘        │  │ Router   │  │ Router      │   │
-                           │  └────┬─────┘  └──────┬──────┘   │
-                           │       │               │          │
-                           │  ┌────▼───────────────▼────────┐ │
-                           │  │        Services             │ │
-                           │  │  AuthService │ LLM Service  │ │
-                           │  └────┬─────────────┬──────────┘ │
-                           │       │             │            │
-                           │  ┌────▼──────┐  ┌───▼─────────┐  │
-                           │  │  SQLite   │  │  Gemini API │  │
-                           │  │  database │  │  (Google)   │  │
-                           │  └───────────┘  └─────────────┘  │
-                           └──────────────────────────────────┘
+```text
+Prompt Builder
+├── frontend/                 Ứng dụng React chạy trên trình duyệt
+│   ├── Trang đăng nhập/đăng ký
+│   ├── Trang tạo Master Prompt (2 giai đoạn)
+│   ├── Trang lịch sử và thùng rác
+│   └── API client gọi FastAPI backend
+│
+└── backend/                  API server FastAPI
+    ├── Auth API              Đăng ký, đăng nhập, Google OAuth, user hiện tại
+    ├── Prompt API            Sinh mô tả thiết kế, tạo job sinh prompt, poll job
+    ├── History API           Danh sách lịch sử, xóa mềm, thùng rác
+    ├── Draft API              Lưu, sửa, đọc bản nháp
+    ├── Services              Xử lý nghiệp vụ, gọi Gemini, trích xuất nội dung (OCR)
+    ├── Workers               Chạy pipeline sinh prompt trong background thread
+    └── Database              Lưu user, provider xác thực, job, draft, history
 ```
 
-### Pipeline sinh Master Prompt
+## Luồng xử lý chính
 
+```text
+Người dùng nhập form hoặc upload file
+        |
+        v
+POST /api/generate-description
+        |
+        v
+Gemini sinh mô tả thiết kế: tone, font, mật độ, visual...
+        |
+        v
+Người dùng chỉnh sửa mô tả thiết kế nếu cần
+        |
+        v
+POST /api/generate
+        |
+        v
+Backend tạo Job, lưu file upload vào uploads/{job_id}/, chạy worker nền
+        |
+        v
+Worker trích xuất nội dung (PDF/OCR), gọi Gemini, ghép Master Prompt
+        |
+        v
+Worker dọn uploads/{job_id}/ sau khi xử lý xong
+        |
+        v
+Frontend poll GET /api/jobs/{job_id}
+        |
+        v
+Hiển thị kết quả và lưu vào lịch sử
 ```
-Input (text/PDF)
-      │
-      ▼
-[Tầng 1] Content Extractor
-  → Trích xuất text từ PDF
-  → Gộp text + PDF thành 1 chuỗi
-      │
-      ▼
-[Tầng 2] Pipeline Worker (background thread)
-  → Build instruction từ payload
-  → Gemini: sinh system_instruction + cấu trúc N slides
-  → Gemini: phân chia nội dung vào từng slide
-  → Assemble → MasterPromptResult
-      │
-      ▼
-Output: full_master_prompt (copy 1 lần vào AI khác)
-```
 
----
+## Cấu trúc thư mục
 
-## Cấu trúc dự án
-
-```
-PromptBuilder/
+```text
+prompt_builder/
+├── readme.md
+├── QUICK_START.md
+├── .gitignore
+│
 ├── backend/
-│   ├── main.py                  # Entry point FastAPI
+│   ├── main.py                       Entry point FastAPI, đăng ký router, CORS, lifespan (cleanup uploads/)
 │   ├── requirements.txt
-│   ├── .env                     # Config
 │   │
-│   ├── api/                     # HTTP routes
-│   │   ├── prompt_router.py     # POST /generate-description, /generate, GET /jobs/{id}
-│   │   └── auth_router.py       # Register, login, OAuth, me
+│   ├── api/
+│   │   ├── auth_router.py            /api/auth: đăng ký, đăng nhập, xác thực email, Google OAuth, me, logout
+│   │   ├── draft_router.py           /api/drafts: lưu, cập nhật, đọc bản nháp
+│   │   ├── history_router.py         /api/history, /api/bin: lịch sử, xóa mềm, thùng rác, khôi phục, xóa vĩnh viễn
+│   │   └── prompt_router.py          /api/generate-description, /api/generate, /api/jobs/{job_id}
 │   │
-│   ├── core/                    # Auth core
-│   │   ├── security.py          # JWT, Argon2
-│   │   ├── dependencies.py      # get_current_user
-│   │   └── oauth.py             # Authlib Google config
+│   ├── core/
+│   │   ├── dependencies.py           Dependency lấy user hiện tại từ JWT/cookie
+│   │   ├── oauth.py                  Cấu hình Authlib cho Google OAuth
+│   │   └── security.py               Hash mật khẩu (Argon2), tạo và kiểm tra JWT
 │   │
 │   ├── database/
-│   │   └── connection.py        # SQLAlchemy engine, SessionLocal
+│   │   └── connection.py             Engine SQLAlchemy, session, Base, tạo bảng
 │   │
-│   ├── models/                  # SQLAlchemy models
-│   │   ├── job.py
-│   │   ├── user.py
-│   │   └── auth_provider.py     # LOCAL / GOOGLE provider
+│   ├── models/
+│   │   ├── auth_provider.py          Provider đăng nhập local hoặc Google
+│   │   ├── job.py                    Job sinh prompt (cũng dùng cho draft, lịch sử, thùng rác)
+│   │   └── user.py                   Người dùng
 │   │
-│   ├── schemas/                 # Pydantic schemas
-│   │   ├── jobs.py
-│   │   ├── prompt.py
-│   │   └── auth.py
+│   ├── schemas/
+│   │   ├── auth.py                   Schema request/response xác thực
+│   │   ├── bin.py                    Schema item trong thùng rác (PaginatedBinResponse)
+│   │   ├── history.py                Schema lịch sử, phân trang, lưu bản nháp
+│   │   ├── jobs.py                   JobStatus, GenerateResponse, JobStatusResponse
+│   │   └── prompt.py                 Schema mô tả thiết kế và Master Prompt output
 │   │
-│   ├── services/                # Business logic
-│   │   ├── auth_service.py      # Register, login, Google OAuth
-│   │   ├── llm_service.py       # Gemini: sinh Master Prompt
-│   │   ├── content_extractor.py # Text + PDF extraction
-│   │   └── email_service.py     # SMTP hoặc console fallback
+│   ├── services/
+│   │   ├── auth_service.py           Nghiệp vụ đăng ký, đăng nhập, xác thực email, Google login
+│   │   ├── content_extractor.py      Trích xuất text từ input, PDF (pypdf) và ảnh/PDF scan (Tesseract OCR vie+eng)
+│   │   ├── email_service.py          Gửi email xác thực hoặc fallback in ra console
+│   │   ├── job_history_service.py    Chuyển đổi job sang dữ liệu history/bin, kiểm tra quyền sở hữu
+│   │   └── llm_service.py            Gọi Gemini để sinh mô tả thiết kế và Master Prompt
+│   │
+│   ├── utils/
+│   │   ├── config.py                 Cấu hình đọc từ .env (pydantic-settings)
+│   │   ├── rate_limiter.py           Theo dõi giới hạn đăng nhập và tạo prompt (in-memory)
+│   │   └── upload_cleanup.py         Dọn các thư mục uploads/{job_id} cũ hơn TTL khi app khởi động
 │   │
 │   ├── workers/
-│   │   └── pipeline_worker.py   # Background thread pipeline
+│   │   └── pipeline_worker.py        Worker chạy pipeline sinh prompt trong background thread
 │   │
-│   └── utils/
-│       ├── config.py            # Settings (pydantic-settings)
-│       └── rate_limiter.py      # Login & generate attempt tracker
+│   └── uploads/                      Thư mục lưu file tạm theo job_id (tự dọn, không commit)
 │
 └── frontend/
+    ├── index.html
     ├── package.json
-    ├── vite.config.ts
+    ├── vite.config.ts                Dev server :3000, proxy /api → http://localhost:8000
+    ├── tsconfig.json / tsconfig.node.json
     └── src/
-        ├── App.tsx              # Router setup
         ├── main.tsx
+        ├── App.tsx                   Khai báo route (React Router)
         ├── index.css
-        ├── services/
-        │   └── api.ts           # axios instance + auth/prompt API calls
+        ├── components/
+        │   └── ProtectedRoute.tsx    Bảo vệ route cần đăng nhập
         ├── context/
-        │   └── AuthContext.tsx  # Global auth state
+        │   └── AuthContext.tsx       Quản lý state đăng nhập toàn cục
         ├── pages/
-        │   ├── LoginPage.tsx
+        │   ├── LoginPage.tsx / AuthPage.css
         │   ├── RegisterPage.tsx
-        │   ├── GeneratePage.tsx # Prompt Builder UI (2 Phase)
-        │   └── CallbackPage.tsx # Google OAuth callback
-        └── components/
-            └── ProtectedRoute.tsx
+        │   ├── CallbackPage.tsx      Callback cho Google OAuth
+        │   ├── GeneratePage.tsx / GeneratePage.css   Form tạo Master Prompt (2 giai đoạn)
+        │   └── HistoryPage.tsx / HistoryPage.css     Lịch sử và thùng rác
+        ├── services/
+        │   └── api.ts                Axios instance + các API call
+        └── vite-env.d.ts
 ```
 
----
+## Bắt đầu nhanh
 
-## Cài đặt & Chạy
+Yêu cầu: Python 3.11+, Node.js 18+, Tesseract OCR, Poppler. Xem hướng dẫn cài đặt đầy đủ (gồm cài Tesseract/Poppler theo từng OS) tại **[QUICK_START.md](./QUICK_START.md)**.
 
-### Yêu cầu hệ thống
-- Python 3.11+
-- Node.js 18+
-
-### Backend
+Tóm tắt khi đã có sẵn môi trường:
 
 ```bash
+# Backend — terminal 1
 cd backend
 python -m venv venv
-venv\Scripts\activate
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # macOS/Linux
 pip install -r requirements.txt
+# Tạo file .env (xem mục Cấu hình môi trường bên dưới)
 uvicorn main:app --reload
-# → http://localhost:8000
-# → API docs: http://localhost:8000/docs
+# → http://localhost:8000   (Swagger: /docs)
 ```
 
-Backend chạy mặc định tại:
-
-- API: `http://localhost:8000`
-- Swagger docs: `http://localhost:8000/docs`
-
-### Frontend
-
 ```bash
+# Frontend — terminal 2
 cd frontend
 npm install
 npm run dev
 # → http://localhost:3000
 ```
 
----
+## Cấu hình môi trường (.env)
 
-## Cấu hình (.env)
+File `.env` đặt trong `backend/`. Toàn bộ biến và giá trị mặc định khai báo tại `backend/utils/config.py`.
 
-```dotenv
-# Gemini AI
-GEMINI_API_KEY=your_gemini_api_key
-LLM_MODEL=gemini-2.5-flash
-
-# Database (SQLite)
-SQLALCHEMY_DATABASE_URL=sqlite:///./database.db
-
-# JWT (tạo key: python -c "import secrets; print(secrets.token_hex(32))")
-JWT_SECRET_KEY=your_secret_key_min_32_chars
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
-
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_REDIRECT_URI=http://localhost:8000/api/auth/google/callback
-
-FRONTEND_URL=http://localhost:3000
-ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-BASE_URL=http://localhost:8000
-
-MAX_LOGIN_ATTEMPTS=5
-LOCKOUT_MINUTES=15
-MAX_GENERATE_ATTEMPTS=5
-GENERATE_LOCKOUT_MINUTES=10
-```
-
----
+| Biến | Mặc định | Mô tả |
+|---|---|---|
+| `ENVIRONMENT` | `development` | `development` hoặc `production`. Production bắt buộc đổi `JWT_SECRET_KEY`. |
+| `SQLALCHEMY_DATABASE_URL` | `sqlite:///./prompt_builder.db` | Đổi sang Postgres khi cần: `postgresql://user:pass@host:5432/dbname` |
+| `gemini_api_key` | _(rỗng)_ | API key Google Gemini |
+| `llm_model` | `gemini-2.5-flash` | Model Gemini dùng để sinh prompt |
+| `min_slides_limit` / `max_slides_limit` | `3` / `30` | Giới hạn số slide cho phép |
+| `JWT_SECRET_KEY` | _(dev key mẫu)_ | Khóa ký JWT — **phải đổi** ở production |
+| `JWT_ALGORITHM` | `HS256` | Thuật toán JWT |
+| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | Thời hạn access token (phút) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | _(rỗng)_ | Lấy từ Google Cloud Console |
+| `GOOGLE_REDIRECT_URI` | `http://localhost:8000/api/auth/google/callback` | Callback URL OAuth |
+| `FRONTEND_URL` | `http://localhost:3000` | URL frontend, dùng trong link email |
+| `ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Danh sách origin CORS, phân tách bằng dấu phẩy |
+| `BASE_URL` | `http://localhost:8000` | URL backend, dùng trong link email |
+| `MAX_LOGIN_ATTEMPTS` / `LOCKOUT_MINUTES` | `5` / `15` | Giới hạn đăng nhập sai |
+| `MAX_GENERATE_ATTEMPTS` / `GENERATE_LOCKOUT_MINUTES` | `5` / `10` | Giới hạn số lần tạo prompt |
+| `EMAIL_VERIFY_TTL_HOURS` | `24` | Thời hạn link xác thực email |
+| `SMTP_HOST` / `SMTP_PORT` | `smtp.gmail.com` / `587` | SMTP server gửi email |
+| `SMTP_USER` / `SMTP_PASSWORD` | _(rỗng)_ | Để trống → dev mode, in link xác thực ra console |
+| `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME` | _(rỗng)_ / `Prompt Builder` | Thông tin người gửi email |
+| `TESSERACT_CMD` | _(rỗng)_ | Đường dẫn `tesseract.exe` — chỉ cần set nếu không có trong PATH (thường gặp trên Windows) |
+| `POPPLER_PATH` | _(rỗng)_ | Đường dẫn thư mục `bin` của Poppler — chỉ cần set nếu không có trong PATH (thường gặp trên Windows) |
 
 ## API Endpoints
 
-### Authentication
+Tất cả endpoint có prefix `/api`. Swagger UI: `http://localhost:8000/docs`.
 
-| Method | Endpoint | Mô tả |
-|--------|----------|-------|
-| POST | `/api/auth/register` | Đăng ký email/password |
-| POST | `/api/auth/login` | Đăng nhập, nhận JWT |
-| GET | `/api/auth/verify-email?token=` | Xác thực email |
-| GET | `/api/auth/google` | Bắt đầu Google OAuth |
-| GET | `/api/auth/google/callback` | Google OAuth callback |
-| GET | `/api/auth/me` | Thông tin user hiện tại (yêu cầu auth) |
-| POST | `/api/auth/logout` | Đăng xuất |
+### Auth — `/api/auth`
 
-### Prompt Generation
+| Method | Path | Mô tả |
+|---|---|---|
+| POST | `/auth/register` | Đăng ký tài khoản bằng email/mật khẩu |
+| POST | `/auth/login` | Đăng nhập, trả về JWT |
+| GET | `/auth/verify-email` | Xác thực email qua token gửi trong link |
+| GET | `/auth/google` | Bắt đầu luồng đăng nhập Google OAuth |
+| GET | `/auth/google/callback` | Callback nhận kết quả từ Google |
+| GET | `/auth/me` | Lấy thông tin user hiện tại |
+| POST | `/auth/logout` | Đăng xuất |
 
-| Method | Endpoint | Auth | Mô tả |
-|--------|----------|------|-------|
-| POST | `/api/generate-description` | **Bắt buộc** | Phase 1 — phân tích & gợi ý thiết kế (sync, ~3–5s) |
-| POST | `/api/generate` | **Bắt buộc** | Phase 2 — tạo job sinh Master Prompt (async) |
-| GET | `/api/jobs/{job_id}` | Không | Kiểm tra trạng thái job |
+### Prompt — `/api`
 
-### Job Status
+| Method | Path | Mô tả |
+|---|---|---|
+| POST | `/generate-description` | Giai đoạn 1: Gemini sinh mô tả thiết kế (tone, font, density, visual...) |
+| POST | `/generate` | Giai đoạn 2: tạo Job, upload file, chạy worker sinh Master Prompt |
+| GET | `/jobs/{job_id}` | Poll trạng thái và kết quả của Job |
 
-```
-PENDING → PROCESSING → COMPLETED
-                     ↘ FAILED
-```
+### History & Bin — `/api`
 
----
+| Method | Path | Mô tả |
+|---|---|---|
+| GET | `/history` | Danh sách lịch sử (phân trang) |
+| DELETE | `/history/{job_id}` | Xóa mềm — chuyển vào thùng rác |
+| GET | `/bin` | Danh sách thùng rác (phân trang) |
+| POST | `/bin/{job_id}/restore` | Khôi phục item từ thùng rác |
+| DELETE | `/bin/{job_id}` | Xóa vĩnh viễn 1 item |
+| DELETE | `/bin` | Xóa vĩnh viễn toàn bộ thùng rác |
 
-## Lưu ý phát triển
+### Drafts — `/api`
 
-| Vấn đề | Giải thích |
-|---|---|
-| Verify token mất sau restart | Token xác thực email lưu in-memory. Restart uvicorn → phải register lại. |
-| Rate limit reset khi restart | Bộ đếm đăng nhập sai & generate cũng in-memory, reset khi restart. |
-| Rate limit generate | `MAX_GENERATE_ATTEMPTS=5` / `GENERATE_LOCKOUT_MINUTES=10` — giới hạn số lần tạo prompt liên tiếp theo user. |
-| Gemini rate limit | `gemini-2.5-flash`: 5 req/phút. Pipeline có delay để tránh lỗi 429. |
-| Google OAuth cần cấu hình | Phải thêm redirect URI vào Google Cloud Console. |
-| Phase 1 & 2 đều cần auth | Cả `POST /api/generate-description` và `POST /api/generate` đều yêu cầu Bearer token. Rate limit 5 lần/10 phút theo user, dùng chung quota. |
+| Method | Path | Mô tả |
+|---|---|---|
+| POST | `/drafts` | Lưu bản nháp mới (Job với status `DRAFT`) |
+| PUT | `/drafts/{job_id}` | Cập nhật bản nháp |
+| GET | `/drafts/{job_id}` | Đọc bản nháp |
 
----
+## Ghi chú phát triển và giới hạn hiện tại
 
-## Tác giả
+- Token xác thực email và rate limit được lưu **in-memory** — mất sau khi restart server.
+- Job sinh Master Prompt chạy trong **background thread** (`run_pipeline_in_thread`), không dùng queue/Redis — phù hợp single-instance, đơn giản hóa cho đồ án.
+- File upload lưu tạm tại `backend/uploads/{job_id}/`, được dọn ngay sau khi job xử lý xong; `utils/upload_cleanup.py` quét và xóa thêm các thư mục tồn đọng quá 24h mỗi khi app khởi động.
+- File upload được kiểm tra extension, MIME type và magic bytes; định dạng hỗ trợ: PDF, PNG, JPG, JPEG, WEBP; tối đa 10MB/file.
+- Database mặc định SQLite (`prompt_builder.db`); đổi sang Postgres qua `SQLALCHEMY_DATABASE_URL` khi cần nhiều kết nối đồng thời.
+- Xóa lịch sử là xóa mềm bằng `deleted_at`; xóa trong thùng rác là xóa vĩnh viễn khỏi database.
 
-Đồ án môn học — phát triển bởi nhóm sinh viên.
+## License
+
+Dự án phục vụ mục đích học tập/đồ án, chưa công bố license chính thức.
