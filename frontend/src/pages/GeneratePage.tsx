@@ -142,7 +142,7 @@ export function GeneratePage() {
     language: 'vi',
   })
 
-  const [pdfFile, setPdfFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
 
   // Phase 1 state
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -275,7 +275,14 @@ const handleDescriptionChange =
   }
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setPdfFile(e.target.files?.[0] || null)
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files)
+      setFiles(prev => [...prev, ...newFiles])
+    }
+  }
+
+  const handleRemoveFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index))
   }
 
   const handleSaveDraft = async () => {
@@ -339,8 +346,8 @@ const handleDescriptionChange =
     e.preventDefault()
     setSubmitError('')
 
-    if (!formData.content.trim() && !pdfFile) {
-      setSubmitError('Vui lòng cung cấp ít nhất một trong hai: nội dung văn bản hoặc file PDF.')
+    if (!formData.content.trim() && files.length === 0) {
+      setSubmitError('Vui lòng cung cấp ít nhất một trong hai: nội dung văn bản hoặc tải file.')
       return
     }
 
@@ -352,7 +359,7 @@ const handleDescriptionChange =
     try {
       const response = await promptAPI.generate({
         ...formData,
-        pdf_file: pdfFile || undefined,
+        files: files.length > 0 ? files : undefined,
         description: description || undefined,
       })
       setJobId(response.data.job_id)
@@ -797,11 +804,25 @@ const handleDescriptionChange =
               </div>
 
               <div className="gen-field">
-                <label>Hoặc tải PDF</label>
+                <label>Hoặc tải file (PDF, JPG, PNG)</label>
                 <label className="gen-file-input">
-                  <input type="file" accept=".pdf" onChange={handleFileChange} disabled={isRunning} />
-                  <span>{pdfFile ? `✓ ${pdfFile.name}` : 'Chọn file PDF...'}</span>
+                  <input type="file" accept=".pdf,image/png,image/jpeg,image/webp" multiple onChange={handleFileChange} disabled={isRunning} />
+                  <span>Chọn file...</span>
                 </label>
+                {files.length > 0 && (
+                  <ul className="gen-file-list">
+                    {files.map((file, idx) => (
+                      <li key={idx}>
+                        <span className="gen-file-name">{file.name}</span>
+                        <button type="button" className="gen-file-remove" onClick={() => handleRemoveFile(idx)} disabled={isRunning}>
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <path d="M10.5 3.5L3.5 10.5M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                          </svg>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </section>
 

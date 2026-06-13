@@ -8,8 +8,8 @@ from core.dependencies import get_current_user
 from database.connection import get_db
 from models.job import Job
 from models.user import User
-from schemas.bin import BinItemResponse
-from schemas.jobs import HistoryItemResponse
+from schemas.bin import PaginatedBinResponse
+from schemas.history import HistoryItemResponse, PaginatedHistoryResponse
 from services.job_history_service import (
     HISTORY_VISIBLE_STATUSES,
     get_owned_active_job,
@@ -22,10 +22,10 @@ router = APIRouter(tags=["History"])
 logger = logging.getLogger(__name__)
 
 
-@router.get("/history", response_model=list[HistoryItemResponse])
+@router.get("/history", response_model=PaginatedHistoryResponse)
 def get_history(
     status_filter: str | None = Query(None, alias="status"),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -48,8 +48,14 @@ def get_history(
             )
         query = query.filter(Job.status == normalized_status)
 
+    total = query.count()
     jobs = query.order_by(Job.updated_at.desc()).offset(offset).limit(limit).all()
-    return [to_history_item(job) for job in jobs]
+    return {
+        "items": [to_history_item(job) for job in jobs],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.delete("/history/{job_id}", status_code=status.HTTP_200_OK)
@@ -68,23 +74,26 @@ def soft_delete_history_item(
     return {"message": "Đã chuyển mục vào thùng rác.", "id": str(job.id)}
 
 
-@router.get("/bin", response_model=list[BinItemResponse])
+@router.get("/bin", response_model=PaginatedBinResponse)
 def get_bin(
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     # Thùng rác chỉ gồm các item đã xóa mềm và thuộc user hiện tại.
-    jobs = (
-        db.query(Job)
-        .filter(Job.user_id == current_user.id, Job.deleted_at.isnot(None))
-        .order_by(Job.deleted_at.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
+    query = db.query(Job).filter(
+        Job.user_id == current_user.id,
+        Job.deleted_at.isnot(None),
     )
-    return [to_bin_item(job) for job in jobs]
+    total = query.count()
+    jobs = query.order_by(Job.deleted_at.desc()).offset(offset).limit(limit).all()
+    return {
+        "items": [to_bin_item(job) for job in jobs],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.post("/bin/{job_id}/restore", response_model=HistoryItemResponse)

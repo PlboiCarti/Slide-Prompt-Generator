@@ -65,7 +65,7 @@ export interface GeneratePayload {
   primary_layout: string
   content: string
   language: string
-  pdf_file?: File
+  files?: File[]
   description?: DesignDescription  // từ Phase 1, user đã chỉnh
 }
 
@@ -108,6 +108,13 @@ export interface BinItem {
   created_at: string
 }
 
+export interface PaginatedResponse<T> {
+  items: T[]
+  total: number
+  limit: number
+  offset: number
+}
+
 export interface SaveDraftPayload {
   purpose: string
   audience: string
@@ -145,8 +152,10 @@ export const promptAPI = {
     formData.append('primary_layout', data.primary_layout)
     formData.append('content', data.content)
     formData.append('language', data.language)
-    if (data.pdf_file) {
-      formData.append('pdf_file', data.pdf_file)
+    if (data.files && data.files.length > 0) {
+      data.files.forEach(file => {
+        formData.append('files', file)
+      })
     }
     // 5 field description riêng lẻ (tránh lỗi JSON string trong multipart)
     if (data.description) {
@@ -165,9 +174,13 @@ export const promptAPI = {
 }
 
 export const historyAPI = {
-  getHistory: (statusFilter?: string) =>
-    api.get<HistoryItem[]>('/history', {
-      params: statusFilter ? { status: statusFilter } : undefined,
+  getHistory: (statusFilter?: string, limit = 10, offset = 0) =>
+    api.get<PaginatedResponse<HistoryItem>>('/history', {
+      params: {
+        ...(statusFilter ? { status: statusFilter } : {}),
+        limit,
+        offset,
+      },
     }),
   softDelete: (id: string) => api.delete(`/history/${id}`),
   getJobResult: (id: string) => api.get<JobStatusResponse>(`/jobs/${id}`),
@@ -180,7 +193,10 @@ export const draftAPI = {
 }
 
 export const binAPI = {
-  getBin: () => api.get<BinItem[]>('/bin'),
+  getBin: (limit = 10, offset = 0) =>
+    api.get<PaginatedResponse<BinItem>>('/bin', {
+      params: { limit, offset },
+    }),
   restore: (id: string) => api.post<HistoryItem>(`/bin/${id}/restore`),
   hardDelete: (id: string) => api.delete(`/bin/${id}`),
   emptyBin: () => api.delete('/bin'),

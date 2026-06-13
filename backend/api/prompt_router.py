@@ -9,7 +9,11 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import shutil
+from pathlib import Path
 from datetime import datetime
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
@@ -23,13 +27,142 @@ from models.job import Job
 from models.user import User
 from schemas.jobs import GenerateResponse, JobStatusResponse
 from schemas.prompt import DescribeRequest, DesignDescription
-from services.content_extractor import extract_content
+from services.content_extractor import MAX_FILE_SIZE
 from services.llm_service import generate_design_description
 from utils.rate_limiter import generate_tracker
 from workers.pipeline_worker import run_pipeline_in_thread
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+_ALLOWED_FILE_SIGNATURES = {
+    ".pdf": {
+        "label": "PDF",
+        "mime_types": {"application/pdf", "application/x-pdf"},
+    },
+    ".png": {
+        "label": "PNG",
+        "mime_types": {"image/png"},
+    },
+    ".jpg": {
+        "label": "JPEG",
+        "mime_types": {"image/jpeg", "image/jpg"},
+    },
+    ".jpeg": {
+        "label": "JPEG",
+        "mime_types": {"image/jpeg", "image/jpg"},
+    },
+    ".webp": {
+        "label": "WEBP",
+        "mime_types": {"image/webp"},
+    },
+}
+_UNSUPPORTED_FILE_DETAIL = (
+    "File không đúng định dạng cho phép. "
+    "Vui lòng tải lên PDF, PNG, JPG hoặc WEBP."
+)
+_FILE_TOO_LARGE_DETAIL = (
+    f"File vượt quá giới hạn dung lượng cho phép. "
+    f"Vui lòng tải lên file nhỏ hơn {MAX_FILE_SIZE // 1024 // 1024}MB."
+)
+
+
+def _detect_file_type(header: bytes) -> str | None:
+    if header.startswith(b"%PDF-"):
+        return ".pdf"
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if header.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        return ".webp"
+    return None
+
+
+def _same_upload_type(expected_ext: str, detected_ext: str) -> bool:
+    if expected_ext in {".jpg", ".jpeg"} and detected_ext == ".jpg":
+        return True
+    return expected_ext == detected_ext
+
+
+async def _validate_upload_file(upload: UploadFile) -> str:
+    original_name = Path(upload.filename or "").name
+    ext = Path(original_name).suffix.lower()
+
+    if not original_name:
+        logger.warning("Upload rejected: missing filename")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_UNSUPPORTED_FILE_DETAIL,
+        )
+
+    allowed = _ALLOWED_FILE_SIGNATURES.get(ext)
+    if not allowed:
+        logger.warning("Upload rejected: unsupported extension filename=%s ext=%s", original_name, ext)
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=_UNSUPPORTED_FILE_DETAIL,
+        )
+
+    upload.file.seek(0, os.SEEK_END)
+    file_size = upload.file.tell()
+    await upload.seek(0)
+    if file_size > MAX_FILE_SIZE:
+        logger.warning(
+            "Upload rejected: file too large filename=%s size=%s max_size=%s",
+            original_name,
+            file_size,
+            MAX_FILE_SIZE,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=_FILE_TOO_LARGE_DETAIL,
+        )
+
+    content_type = (upload.content_type or "").split(";")[0].strip().lower()
+    if content_type and content_type != "application/octet-stream":
+        if content_type not in allowed["mime_types"]:
+            logger.warning(
+                "Upload rejected: invalid MIME filename=%s ext=%s content_type=%s expected=%s",
+                original_name,
+                ext,
+                content_type,
+                sorted(allowed["mime_types"]),
+            )
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=_UNSUPPORTED_FILE_DETAIL,
+            )
+
+    header = await upload.read(16)
+    await upload.seek(0)
+    detected_ext = _detect_file_type(header)
+    if not detected_ext:
+        logger.warning(
+            "Upload rejected: unknown signature filename=%s ext=%s content_type=%s header=%r",
+            original_name,
+            ext,
+            content_type,
+            header,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=_UNSUPPORTED_FILE_DETAIL,
+        )
+    if not _same_upload_type(ext, detected_ext):
+        logger.warning(
+            "Upload rejected: extension/signature mismatch filename=%s ext=%s detected_ext=%s content_type=%s",
+            original_name,
+            ext,
+            detected_ext,
+            content_type,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=_UNSUPPORTED_FILE_DETAIL,
+        )
+
+    return ext
 
 # Tên hiển thị cho từng desc field để thông báo lỗi rõ ràng hơn
 _DESC_FIELD_LABELS = {
@@ -39,7 +172,6 @@ _DESC_FIELD_LABELS = {
     "density":          "desc_density (mật độ thông tin trên slide)",
     "visual":           "desc_visual (yếu tố hình ảnh / màu sắc minh hoạ)",
 }
-
 
 # ══════════════════════════════════════════════════════════════════════
 # PHASE 1 — Sinh mô tả thiết kế (synchronous)
@@ -111,7 +243,7 @@ async def generate(
     language: str      = Form("vi"),
     # ── Content / PDF ─────────────────────────────────────────────────
     content: str       = Form("", max_length=100_000),
-    pdf_file: UploadFile = File(None),
+    files: list[UploadFile] | None = File(None),
     # ── Description fields từ Phase 1 (5 field riêng lẻ) ─────────────
     # Tách thành field riêng để Swagger UI hiển thị rõ ràng, tránh lỗi
     # khi paste JSON string nhiều dòng vào form field.
@@ -145,14 +277,25 @@ async def generate(
             headers={"Retry-After": str(retry_after)},
         )
 
+    valid_files = []
+    if files:
+        valid_files = [f for f in files if f.filename]
+    has_valid_files = len(valid_files) > 0
+
     # Phải có ít nhất 1 trong 2
-    if not content.strip() and not pdf_file:
+    if not content.strip() and not has_valid_files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Phải cung cấp ít nhất một trong hai: nội dung văn bản (content) hoặc file PDF.",
+            detail="Phải cung cấp ít nhất một trong hai: nội dung văn bản (content) hoặc tải lên file.",
         )
 
     # Build description_dict từ 5 field riêng lẻ
+    validated_files: list[tuple[UploadFile, str]] = []
+    if has_valid_files:
+        for upload in valid_files:
+            ext = await _validate_upload_file(upload)
+            validated_files.append((upload, ext))
+
     description_dict: dict = {}
     desc_fields = {
         "tone":             desc_tone.strip(),
@@ -180,12 +323,29 @@ async def generate(
     # Ghi nhận attempt SAU KHI validate xong — tránh hao slot vì lỗi form
     generate_tracker.record_failed_attempt(current_user.id)
 
-    # Gộp content từ text + PDF
-    final_content = await extract_content(
-        text_content=content or None,
-        pdf_file=pdf_file,
+    # Khởi tạo Job trước để lấy ID (tạm thời để input_payload rỗng hoặc cơ bản)
+    job = Job(
+        user_id=current_user.id,
+        input_payload="{}", # Sẽ cập nhật sau
+        status="PENDING",
     )
+    db.add(job)
+    db.flush() # Dùng flush() thay vì commit() để lấy ID mà chưa chốt transaction
 
+    job_id = str(job.id)
+    file_paths = []
+
+
+    if has_valid_files:
+        upload_dir = Path(f"uploads/{job_id}")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        for f, ext in validated_files:
+            file_path = upload_dir / f"{uuid4().hex}{ext}"
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(f.file, buffer)
+            file_paths.append(str(file_path))
+
+    # Worker se tao final_content bang cach gop raw_content voi noi dung doc tu file_paths.
     payload = {
         "purpose":        purpose,
         "audience":       audience,
@@ -194,22 +354,19 @@ async def generate(
         "slide_count":    slide_count,
         "primary_layout": primary_layout,
         "language":       language,
-        "content":        final_content,
+        "raw_content":    content,
+        "file_paths":     file_paths,
         "description":    description_dict,  # dict (có thể rỗng)
     }
 
-    job = Job(
-        user_id=current_user.id,
-        input_payload=json.dumps(payload, ensure_ascii=False),
-        status="PENDING",
-    )
-    db.add(job)
+    # Cập nhật lại job và commit
+    job.input_payload = json.dumps(payload, ensure_ascii=False)
     db.commit()
     db.refresh(job)
 
     logger.info(
-        f"Job created: {str(job.id)[:8]} | purpose='{purpose[:40]}' | "
-        f"has_description={bool(description_dict)} | has_content={bool(final_content.strip())}"
+        f"Job created: {job_id[:8]} | purpose='{purpose[:40]}' | "
+        f"has_description={bool(description_dict)} | files={len(file_paths)}"
     )
 
     # Chạy pipeline trong background thread (daemon)

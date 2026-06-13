@@ -31,5 +31,7 @@ httpx
 # Misc
 python-dotenv
 
-# HTTP Client
-httpx
+# Local OCR
+pytesseract
+Pillow
+pdf2image
