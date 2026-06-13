@@ -108,6 +108,13 @@ export interface BinItem {
   created_at: string
 }
 
+export interface PaginatedResponse<T> {
+  items: T[]
+  total: number
+  limit: number
+  offset: number
+}
+
 export interface SaveDraftPayload {
   purpose: string
   audience: string
@@ -167,9 +174,13 @@ export const promptAPI = {
 }
 
 export const historyAPI = {
-  getHistory: (statusFilter?: string) =>
-    api.get<HistoryItem[]>('/history', {
-      params: statusFilter ? { status: statusFilter } : undefined,
+  getHistory: (statusFilter?: string, limit = 10, offset = 0) =>
+    api.get<PaginatedResponse<HistoryItem>>('/history', {
+      params: {
+        ...(statusFilter ? { status: statusFilter } : {}),
+        limit,
+        offset,
+      },
     }),
   softDelete: (id: string) => api.delete(`/history/${id}`),
   getJobResult: (id: string) => api.get<JobStatusResponse>(`/jobs/${id}`),
@@ -182,7 +193,10 @@ export const draftAPI = {
 }
 
 export const binAPI = {
-  getBin: () => api.get<BinItem[]>('/bin'),
+  getBin: (limit = 10, offset = 0) =>
+    api.get<PaginatedResponse<BinItem>>('/bin', {
+      params: { limit, offset },
+    }),
   restore: (id: string) => api.post<HistoryItem>(`/bin/${id}/restore`),
   hardDelete: (id: string) => api.delete(`/bin/${id}`),
   emptyBin: () => api.delete('/bin'),

@@ -2,7 +2,7 @@
   min-height: 100vh;
   background: #f7f8fa;
   color: #111827;
-  padding: 32px;
+  padding: 32px 32px 96px;
 }
 
 .history-header {
@@ -37,7 +37,8 @@
 .history-card-actions button,
 .history-empty button,
 .history-tabs button,
-.history-modal button {
+.history-modal button,
+.history-pagination button {
   border: 1px solid #d1d5db;
   background: white;
   color: #374151;
@@ -51,8 +52,25 @@
 .history-card-actions button:hover,
 .history-empty button:hover,
 .history-tabs button:hover,
-.history-modal button:hover {
+.history-modal button:hover,
+.history-pagination button:hover {
   background: #f3f4f6;
+}
+
+.history-pagination button:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+
+.history-actions button:disabled,
+.history-card-actions button:disabled,
+.history-empty button:disabled,
+.history-tabs button:disabled,
+.history-modal button:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  background: #f9fafb;
 }
 
 .history-actions .danger,
@@ -79,6 +97,17 @@
   gap: 12px;
 }
 
+.history-pagination {
+  max-width: 980px;
+  margin: 20px auto 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  color: #4b5563;
+  font-size: 14px;
+}
+
 .history-card {
   background: white;
   border: 1px solid #e5e7eb;
@@ -95,7 +124,24 @@
   margin: 6px 0;
 }
 
+.history-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  align-items: center;
+  margin: 8px 0;
+  font-weight: 600;
+}
+
+.history-card-meta span {
+  min-width: 0;
+}
+
 .history-status {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #f3f4f6;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
@@ -107,7 +153,13 @@
 }
 
 .status-draft {
-  border-left-color: #7c3aed;
+  border-left-color: #f2c94c;
+  background: #fffaf0;
+}
+
+.history-card.status-draft .history-status {
+  background: #f2c94c;
+  color: #7a4f00;
 }
 
 .status-failed {
@@ -166,13 +218,49 @@
   line-height: 1.6;
 }
 
+.history-bin-fab {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 999px;
+  background: #4f46e5;
+  color: white;
+  box-shadow: 0 14px 30px rgba(79, 70, 229, 0.32);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+}
+
+.history-bin-fab:hover {
+  background: #4338ca;
+}
+
+.history-bin-fab.active {
+  background: #111827;
+  box-shadow: 0 14px 30px rgba(17, 24, 39, 0.28);
+}
+
 @media (max-width: 700px) {
   .history-page {
-    padding: 20px 14px;
+    padding: 20px 14px 92px;
   }
 
   .history-header,
   .history-card {
     flex-direction: column;
+  }
+
+  .history-pagination {
+    flex-wrap: wrap;
+  }
+
+  .history-bin-fab {
+    right: 18px;
+    bottom: 18px;
   }
 }

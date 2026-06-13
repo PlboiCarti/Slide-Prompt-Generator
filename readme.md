@@ -133,164 +133,71 @@ prompt_builder/
 │   ├── workers/
 │   │   └── pipeline_worker.py   Worker chạy pipeline sinh prompt trong background thread
 │   │
-│   ├── main.py                  Entry point FastAPI, khai báo middleware và router
-│   ├── requirements.txt         Danh sách thư viện Python
-│   ├── test_ocr.py              Script kiểm thử OCR
-│   ├── test.pdf                 File kiểm thử PDF
-│   └── test.png                 File kiểm thử ảnh
+│   └── utils/
+│       ├── config.py            # Settings (pydantic-settings)
+│       └── rate_limiter.py      # Login & generate attempt tracker
 │
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   └── ProtectedRoute.tsx Route yêu cầu đăng nhập
-│   │   │
-│   │   ├── context/
-│   │   │   └── AuthContext.tsx     Quản lý trạng thái đăng nhập toàn cục
-│   │   │
-│   │   ├── pages/
-│   │   │   ├── AuthPage.css        CSS chung cho trang auth
-│   │   │   ├── BinPage.tsx         Trang thùng rác
-│   │   │   ├── CallbackPage.tsx    Xử lý callback sau Google OAuth
-│   │   │   ├── GeneratePage.css    CSS trang tạo prompt
-│   │   │   ├── GeneratePage.tsx    Form tạo prompt, upload file, lưu nháp, xem kết quả
-│   │   │   ├── HistoryPage.css     CSS trang lịch sử
-│   │   │   ├── HistoryPage.tsx     Danh sách lịch sử, lọc, xem lại kết quả, thao tác thùng rác
-│   │   │   ├── LoginPage.tsx       Trang đăng nhập
-│   │   │   └── RegisterPage.tsx    Trang đăng ký
-│   │   │
-│   │   ├── services/
-│   │   │   └── api.ts              Axios instance và các hàm gọi API backend
-│   │   │
-│   │   ├── App.tsx                 Khai báo router frontend
-│   │   ├── index.css               CSS toàn cục
-│   │   ├── main.tsx                Entry point React
-│   │   └── vite-env.d.ts           Type definition của Vite
-│   │
-│   ├── index.html
-│   ├── package.json                Script và dependency frontend
-│   ├── package-lock.json
-│   ├── tsconfig.json
-│   ├── tsconfig.node.json
-│   └── vite.config.ts
-│
-├── .gitignore
-├── deploy.md                      Ghi chú triển khai
-├── main.py                        File Python cấp root
-├── problem.md                     Mô tả bài toán/yêu cầu
-├── readme.md                      Tài liệu cấu trúc đồ án
-└── venv/                          Môi trường ảo Python local
+└── frontend/
+    ├── package.json
+    ├── vite.config.ts
+    └── src/
+        ├── App.tsx              # Router setup
+        ├── main.tsx
+        ├── index.css
+        ├── services/
+        │   └── api.ts           # axios instance + auth/prompt API calls
+        ├── context/
+        │   └── AuthContext.tsx  # Global auth state
+        ├── pages/
+        │   ├── LoginPage.tsx
+        │   ├── RegisterPage.tsx
+        │   ├── GeneratePage.tsx # Prompt Builder UI (2 Phase)
+        │   └── CallbackPage.tsx # Google OAuth callback
+        └── components/
+            └── ProtectedRoute.tsx
 ```
 
-## Backend
+---
 
-Backend nằm trong thư mục `backend/` và dùng FastAPI làm API server.
+## Cài đặt & Chạy
 
-File quan trọng nhất là `backend/main.py`. File này:
+### Yêu cầu hệ thống
+- Python 3.11+
+- Node.js 18+
 
-- Tạo ứng dụng FastAPI.
-- Tạo bảng cơ sở dữ liệu khi khởi động.
-- Cấu hình CORS theo biến môi trường.
-- Thêm `SessionMiddleware` để phục vụ Google OAuth.
-- Gắn các router: prompt, auth, history, draft.
-- Cung cấp endpoint health check tại `/`.
+### Backend
 
-Các nhóm API chính:
+```bash
+cd backend
 
-| Nhóm | File | Chức năng |
-|---|---|---|
-| Authentication | `backend/api/auth_router.py` | Đăng ký, đăng nhập, xác thực email, Google OAuth, lấy thông tin user, logout |
-| Prompt Generation | `backend/api/prompt_router.py` | Sinh mô tả thiết kế, tạo job sinh Master Prompt, xem trạng thái job |
-| History | `backend/api/history_router.py` | Xem lịch sử, xóa mềm, xem thùng rác, khôi phục, xóa vĩnh viễn |
-| Drafts | `backend/api/draft_router.py` | Lưu bản nháp, cập nhật bản nháp, lấy dữ liệu bản nháp |
+# Tạo và kích hoạt virtual environment
+python -m venv venv
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # Mac/Linux
 
-## Frontend
+# Cài dependencies
+pip install -r requirements.txt
 
-Frontend nằm trong thư mục `frontend/` và dùng React + TypeScript + Vite.
+# Tạo file .env (xem mục Cấu hình bên dưới)
 
-File `frontend/src/App.tsx` khai báo các route:
-
-| Route | Trang | Ghi chú |
-|---|---|---|
-| `/login` | `LoginPage` | Đăng nhập email/password hoặc Google |
-| `/register` | `RegisterPage` | Đăng ký tài khoản |
-| `/auth/callback` | `CallbackPage` | Nhận kết quả sau Google OAuth |
-| `/generate` | `GeneratePage` | Trang chính để tạo Master Prompt, yêu cầu đăng nhập |
-| `/history` | `HistoryPage` | Xem lịch sử, bản nháp, kết quả đã tạo, yêu cầu đăng nhập |
-| `/bin` | Redirect về `/history` | Thùng rác được xử lý trong luồng history |
-| `/` | Redirect về `/generate` | Trang mặc định |
-
-File `frontend/src/services/api.ts` gom toàn bộ hàm gọi backend:
-
-- `authAPI`: đăng ký, đăng nhập, xác thực email, lấy user hiện tại, logout, Google login URL.
-- `promptAPI`: sinh mô tả thiết kế, tạo job sinh prompt, poll trạng thái job.
-- `historyAPI`: lấy lịch sử, xóa mềm, lấy lại kết quả job.
-- `draftAPI`: lưu, sửa, đọc bản nháp.
-- `binAPI`: xem thùng rác, khôi phục, xóa vĩnh viễn, dọn thùng rác.
-
-## Cơ sở dữ liệu
-
-Các model chính nằm trong `backend/models/`:
-
-- `User`: thông tin người dùng.
-- `AuthProvider`: liên kết phương thức đăng nhập local hoặc Google với user.
-- `Job`: lưu job sinh prompt, trạng thái xử lý, dữ liệu đầu vào, kết quả đầu ra, draft và trạng thái xóa mềm.
-
-Backend mặc định dùng SQLite qua cấu hình:
-
-```dotenv
-SQLALCHEMY_DATABASE_URL=sqlite:///./prompt_builder.db
+# Chạy server
+uvicorn main:app --reload
+# → http://localhost:8000
+# → API docs: http://localhost:8000/docs
 ```
 
-Khi cần triển khai production có thể đổi sang PostgreSQL bằng URL tương ứng.
+### Frontend
 
-## API endpoints
-
-### Authentication
-
-| Method | Endpoint | Mô tả |
-|---|---|---|
-| POST | `/api/auth/register` | Đăng ký bằng email và mật khẩu |
-| POST | `/api/auth/login` | Đăng nhập và nhận access token |
-| GET | `/api/auth/verify-email?token=...` | Xác thực email |
-| GET | `/api/auth/google` | Bắt đầu đăng nhập Google |
-| GET | `/api/auth/google/callback` | Callback từ Google OAuth |
-| GET | `/api/auth/me` | Lấy thông tin user hiện tại |
-| POST | `/api/auth/logout` | Đăng xuất |
-
-### Prompt
-
-| Method | Endpoint | Mô tả |
-|---|---|---|
-| POST | `/api/generate-description` | Giai đoạn 1: sinh mô tả thiết kế |
-| POST | `/api/generate` | Giai đoạn 2: tạo background job sinh Master Prompt |
-| GET | `/api/jobs/{job_id}` | Lấy trạng thái và kết quả job |
-
-Trạng thái job:
-
-```text
-PENDING -> PROCESSING -> COMPLETED
-                      -> FAILED
+```bash
+cd frontend
+npm install
+npm run dev
+# → http://localhost:3000
 ```
 
-Ngoài ra hệ thống dùng trạng thái `DRAFT` cho bản nháp.
+---
 
-### History, Draft, Bin
-
-| Method | Endpoint | Mô tả |
-|---|---|---|
-| GET | `/api/history` | Lấy danh sách lịch sử |
-| DELETE | `/api/history/{job_id}` | Xóa mềm một item lịch sử |
-| POST | `/api/drafts` | Lưu bản nháp mới |
-| PUT | `/api/drafts/{job_id}` | Cập nhật bản nháp |
-| GET | `/api/drafts/{job_id}` | Lấy dữ liệu bản nháp |
-| GET | `/api/bin` | Lấy danh sách item trong thùng rác |
-| POST | `/api/bin/{job_id}/restore` | Khôi phục item từ thùng rác |
-| DELETE | `/api/bin/{job_id}` | Xóa vĩnh viễn một item |
-| DELETE | `/api/bin` | Dọn toàn bộ thùng rác |
-
-## Cấu hình môi trường
-
-Tạo file `.env` trong thư mục `backend/` hoặc thư mục chạy server tùy cách khởi động.
+## Cấu hình (.env)
 
 ```dotenv
 # Môi trường
@@ -310,17 +217,15 @@ JWT_SECRET_KEY=your_secret_key_min_32_chars
 JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
-# Google OAuth
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
+# Google OAuth (https://console.cloud.google.com/apis/credentials)
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
 GOOGLE_REDIRECT_URI=http://localhost:8000/api/auth/google/callback
 
-# Frontend và CORS
-FRONTEND_URL=http://localhost:3000
-ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-BASE_URL=http://localhost:8000
+# Frontend
+FRONTEND_URL=http://localhost:5173
 
-# Rate limiting
+# Rate limiting — đăng nhập
 MAX_LOGIN_ATTEMPTS=5
 LOCKOUT_MINUTES=15
 MAX_GENERATE_ATTEMPTS=5
