@@ -8,7 +8,8 @@ from core.dependencies import get_current_user
 from database.connection import get_db
 from models.job import Job
 from models.user import User
-from schemas.jobs import HistoryItemResponse, JobStatus, SaveDraftRequest
+from schemas.history import HistoryItemResponse, SaveDraftRequest
+from schemas.jobs import JobStatus
 from services.job_history_service import get_owned_draft, to_history_item
 
 router = APIRouter(tags=["Drafts"])

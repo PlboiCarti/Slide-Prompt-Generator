@@ -111,7 +111,8 @@
   .history-card-actions button,
   .history-empty button,
   .history-tabs button,
-  .history-modal button {
+  .history-modal button,
+  .history-pagination button {
     border: 1px solid #3f3f46;
     background: rgba(9, 9, 11, 0.82);
     color: white;
@@ -126,18 +127,31 @@
       box-shadow 0.18s ease,
       background 0.18s ease;
   }
-  
+
   .history-actions button:hover,
   .history-card-actions button:hover,
   .history-empty button:hover,
   .history-tabs button:hover,
-  .history-modal button:hover {
+  .history-modal button:hover,
+  .history-pagination button:hover {
     transform: translateY(-1px);
     border-color: rgba(34, 211, 238, 0.7);
     background: rgba(9, 9, 11, 0.96);
     box-shadow: 0 0 26px rgba(34, 211, 238, 0.14);
   }
-  
+
+  .history-actions button:disabled,
+  .history-card-actions button:disabled,
+  .history-empty button:disabled,
+  .history-tabs button:disabled,
+  .history-modal button:disabled,
+  .history-pagination button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
   .history-actions .danger,
   .history-card-actions .danger {
     color: #fecdd3;
@@ -199,7 +213,20 @@
     display: grid;
     gap: 14px;
   }
-  
+
+  .history-pagination {
+    position: relative;
+    z-index: 1;
+    max-width: 1120px;
+    margin: 24px auto 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    color: #a1a1aa;
+    font-size: 14px;
+  }
+
   .history-card {
     position: relative;
     overflow: hidden;
@@ -269,7 +296,25 @@
     font-size: 14px;
     line-height: 1.6;
   }
-  
+
+  .history-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    align-items: center;
+    margin: 10px 0;
+    color: #a1a1aa;
+    font-size: 14px;
+  }
+
+  .history-card-meta span {
+    min-width: 0;
+  }
+
+  .history-card-meta strong {
+    color: #d4d4d8;
+  }
+
   .history-status {
     display: inline-flex;
     align-items: center;
@@ -330,7 +375,46 @@
     justify-content: flex-end;
     min-width: 180px;
   }
-  
+
+  /* Bin floating action button */
+
+  .history-bin-fab {
+    position: fixed;
+    right: 28px;
+    bottom: 28px;
+    z-index: 30;
+    width: 58px;
+    height: 58px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 999px;
+    color: white;
+    background: linear-gradient(91deg, #ff1cf7 2.26%, #00f0ff 100%);
+    box-shadow:
+      0 0 30px rgba(255, 28, 247, 0.25),
+      0 14px 36px rgba(0, 240, 255, 0.2);
+    cursor: pointer;
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.18s ease,
+      background 0.18s ease;
+  }
+
+  .history-bin-fab:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 0 40px rgba(255, 28, 247, 0.35),
+      0 18px 44px rgba(0, 240, 255, 0.28);
+  }
+
+  .history-bin-fab.active {
+    background: rgba(9, 9, 11, 0.92);
+    border: 1px solid rgba(34, 211, 238, 0.6);
+    box-shadow: 0 0 26px rgba(34, 211, 238, 0.22);
+  }
+
   /* Empty + Error */
   
   .history-empty,
@@ -521,6 +605,18 @@
     .history-modal pre {
       padding: 18px;
       font-size: 12px;
+    }
+
+    .history-bin-fab {
+      right: 18px;
+      bottom: 18px;
+      width: 52px;
+      height: 52px;
+    }
+
+    .history-pagination {
+      flex-wrap: wrap;
+      gap: 10px;
     }
   }
 
