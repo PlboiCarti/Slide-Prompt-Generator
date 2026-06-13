@@ -71,14 +71,14 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
         _update_job(db, job_id, "PROCESSING")
         logger.info(f"[{job_id[:8]}] PROCESSING | purpose='{purpose[:40]}'")
 
-        from services.content_extractor import extract_content_from_files
+        from services.content_extractor import extract_content_from_files, normalize_extract_error
         # raw_content la text goc tu form; final_content la ket qua da gop text + file/OCR.
         if file_paths or raw_content.strip():
             try:
                 final_content = extract_content_from_files(raw_content, file_paths)
             except Exception as e:
                 logger.error(f"[{job_id[:8]}] Lỗi extract content: {e}")
-                raise ValueError(f"Lỗi đọc nội dung file: {e}")
+                raise ValueError(normalize_extract_error(e)) from e
         else:
             final_content = ""
 
