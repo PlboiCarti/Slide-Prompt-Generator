@@ -145,23 +145,20 @@ def _extract_pdf(file_path: str) -> str:
 
 def _tesseract_extract(file_path: str, is_pdf: bool = False) -> str:
     """Đọc text từ file ảnh hoặc PDF scan bằng Tesseract OCR (Local)."""
-    import sys
-
     try:
         import pytesseract
         from PIL import Image
 
-        # CHÚ Ý TRÊN WINDOWS: Cần trỏ đúng tới nơi bạn đã cài Tesseract
-        if sys.platform == "win32":
-            pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+        from utils.config import get_settings
+
+        settings = get_settings()
+
+        if settings.TESSERACT_CMD:
+            pytesseract.pytesseract.tesseract_cmd = settings.TESSERACT_CMD
 
         if is_pdf:
             from pdf2image import convert_from_path
-            # Yêu cầu phải có Poppler trên OS để chạy convert_from_path.
-            if sys.platform == "win32" and os.path.exists(r'C:\poppler\Library\bin'):
-                images = convert_from_path(file_path, poppler_path=r'C:\poppler\Library\bin')
-            else:
-                images = convert_from_path(file_path)
+            images = convert_from_path(file_path, poppler_path=settings.POPPLER_PATH or None)
 
             text_parts = []
             for img in images:
