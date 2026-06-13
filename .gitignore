@@ -22,14 +22,22 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
+# Các file ảnh/tài liệu test tạm thời trong backend
+backend/*.png
+backend/*.jpg
+backend/*.jpeg
+test.png
 
 # ==================== DATABASE ====================
-# SQLite - dữ liệu local, không commit
+# SQLite - dữ liệu local, không commit (Đã bao gồm các file đang hiện ở root backend của bạn)
 *.db
 *.db-shm
 *.db-wal
 *.sqlite
 *.sqlite3
+backend/database.db
+backend/database.db-shm
+backend/database.db-wal
 
 # ==================== ENVIRONMENT ====================
 # QUAN TRỌNG: Không bao giờ commit file .env (chứa secret keys)
@@ -37,6 +45,7 @@ htmlcov/
 .env.local
 .env.*.local
 .env.production
+backend/.env
 
 # ==================== NODE / FRONTEND ====================
 node_modules/
@@ -55,3 +64,4 @@ Thumbs.db
 # ==================== LOGS ====================
 *.log
 logs/
+backend/*.log
