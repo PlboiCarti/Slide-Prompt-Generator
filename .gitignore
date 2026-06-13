@@ -64,11 +64,3 @@ Thumbs.db
 # ==================== LOGS ====================
 *.log
 logs/
-
-# Ignore specific files
-test_ocr.py
-test.png
-test.pdf
-deploy.md
-PDF.md
-problem.md
