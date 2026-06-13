@@ -158,8 +158,8 @@ def _tesseract_extract(file_path: str, is_pdf: bool = False) -> str:
         if is_pdf:
             from pdf2image import convert_from_path
             # Yêu cầu phải có Poppler trên OS để chạy convert_from_path.
-            if sys.platform == "win32" and os.path.exists(r'C:\poppler\bin'):
-                images = convert_from_path(file_path, poppler_path=r'C:\poppler\bin')
+            if sys.platform == "win32" and os.path.exists(r'C:\poppler\Library\bin'):
+                images = convert_from_path(file_path, poppler_path=r'C:\poppler\Library\bin')
             else:
                 images = convert_from_path(file_path)
 

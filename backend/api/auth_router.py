@@ -75,9 +75,16 @@ def verify_email(token: str, db: Session = Depends(get_db)):
 # ── GOOGLE OAUTH ──────────────────────────────────────────────────────
 @router.get("/google")
 async def google_login(request: Request):
-    """Bước 1: Redirect user sang Google."""
+    """
+    Bước 1: Redirect user sang Google.
+    prompt="select_account" — luôn hiện màn hình chọn account, tránh Google
+    tự động tái sử dụng session đăng nhập sẵn có (silent SSO) và trả về
+    sai account khi user muốn đăng nhập bằng account Google khác.
+    """
     redirect_uri = settings.GOOGLE_REDIRECT_URI
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+    return await oauth.google.authorize_redirect(
+        request, redirect_uri, prompt="select_account"
+    )
 
 
 @router.get("/google/callback")
