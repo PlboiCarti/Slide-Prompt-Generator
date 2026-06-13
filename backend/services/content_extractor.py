@@ -30,6 +30,9 @@ MSG_OCR_NO_TEXT = (
 )
 MSG_NO_CONTENT = "Không tìm thấy nội dung hợp lệ trong text hoặc file đã gửi."
 
+# OCR song ngữ Việt/Anh để đọc tốt cả file tiếng Việt, tiếng Anh và file lẫn cả hai.
+OCR_LANG = "vie+eng"
+
 
 class ContentExtractionError(ValueError):
     """Lỗi đã được chuẩn hóa để có thể hiển thị trực tiếp cho người dùng."""
@@ -159,16 +162,16 @@ def _tesseract_extract(file_path: str, is_pdf: bool = False) -> str:
                 images = convert_from_path(file_path, poppler_path=r'C:\poppler\bin')
             else:
                 images = convert_from_path(file_path)
-                
+
             text_parts = []
             for img in images:
-                text = pytesseract.image_to_string(img, lang='vie')
+                text = pytesseract.image_to_string(img, lang=OCR_LANG)
                 if text.strip():
                     text_parts.append(text.strip())
             return "\n\n".join(text_parts)
         else:
             img = Image.open(file_path)
-            text = pytesseract.image_to_string(img, lang='vie')
+            text = pytesseract.image_to_string(img, lang=OCR_LANG)
             return text.strip()
     except Exception as e:
         logger.error(f"Lỗi khi chạy Tesseract OCR cho {file_path}: {e}")
