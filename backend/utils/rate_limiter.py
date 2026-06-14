@@ -88,3 +88,8 @@ resend_tracker = LoginAttemptTracker(
     max_attempts=settings.MAX_RESEND_ATTEMPTS,
     lockout_minutes=settings.RESEND_LOCKOUT_MINUTES,
 )
+
+verification_status_tracker = LoginAttemptTracker(
+    max_attempts=settings.MAX_VERIFICATION_STATUS_ATTEMPTS,
+    lockout_minutes=settings.VERIFICATION_STATUS_LOCKOUT_MINUTES,
+)
