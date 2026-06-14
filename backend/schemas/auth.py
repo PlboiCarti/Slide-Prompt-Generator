@@ -8,7 +8,9 @@ from pydantic import BaseModel, EmailStr, Field
 class UserRegister(BaseModel):
     """Body khi user đăng ký bằng email/password."""
     email: EmailStr
-    password: str = Field(min_length=8, max_length=72)  # 72 là giới hạn bcrypt
+    # 128: chặn input quá dài gây tốn tài nguyên khi hash (argon2 không có
+    # giới hạn cứng như bcrypt's 72 bytes, nhưng vẫn nên giới hạn hợp lý)
+    password: str = Field(min_length=8, max_length=128)
     username: str | None = Field(default=None, min_length=3, max_length=30)
 
 
@@ -16,6 +18,11 @@ class UserLogin(BaseModel):
     """Body khi user đăng nhập."""
     email: EmailStr
     password: str
+
+
+class ResendVerificationRequest(BaseModel):
+    """Body khi user yêu cầu gửi lại email xác thực."""
+    email: EmailStr
 
 
 # ── OUTPUT (response) ─────────────────────────────────────────────────
@@ -31,13 +38,11 @@ class UserResponse(BaseModel):
         from_attributes = True  # Cho phép tạo từ SQLAlchemy model
 
 
-class TokenResponse(BaseModel):
-    """Response sau khi đăng nhập thành công."""
-    access_token: str
-    token_type: str = "bearer"
-    user: UserResponse
-
-
 class MessageResponse(BaseModel):
     """Response chung khi chỉ cần báo message."""
     message: str
+
+
+class VerificationStatusResponse(BaseModel):
+    """Response cho polling trạng thái xác thực email."""
+    verified: bool

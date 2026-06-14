@@ -35,7 +35,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(response.data)
     } catch {
       setUser(null)
-      localStorage.removeItem('access_token')
     } finally {
       setIsLoading(false)
     }
@@ -47,9 +46,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = useCallback(async (email: string, password: string) => {
     const response = await authAPI.login({ email, password })
-    const { access_token, user: userData } = response.data
-    localStorage.setItem('access_token', access_token)
-    setUser(userData)
+    setUser(response.data)
   }, [])
 
   const register = useCallback(async (email: string, password: string) => {
@@ -62,7 +59,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch {
       // Kể cả API fail, vẫn xóa state local
     }
-    localStorage.removeItem('access_token')
     setUser(null)
   }, [])
 

@@ -10,25 +10,6 @@ const api: AxiosInstance = axios.create({
   },
 })
 
-// Tự gắn Bearer token từ localStorage (cho login email/password)
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('access_token')
-    }
-    return Promise.reject(error)
-  }
-)
-
 export interface LoginPayload {
   email: string
   password: string
@@ -127,10 +108,22 @@ export interface SaveDraftPayload {
   description?: DesignDescription | null
 }
 
+export interface VerificationStatusResponse {
+  verified: boolean
+}
+
+export interface MessageResponse {
+  message: string
+}
+
 export const authAPI = {
   register: (data: RegisterPayload) => api.post('/auth/register', data),
   login: (data: LoginPayload) => api.post('/auth/login', data),
   verifyEmail: (token: string) => api.get(`/auth/verify-email?token=${token}`),
+  getVerificationStatus: (email: string) =>
+    api.get<VerificationStatusResponse>('/auth/verification-status', { params: { email } }),
+  resendVerification: (email: string) =>
+    api.post<MessageResponse>('/auth/resend-verification', { email }),
   getMe: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
   googleLoginUrl: () => `${API_URL}/auth/google`,
