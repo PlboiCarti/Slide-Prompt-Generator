@@ -3,7 +3,7 @@ api/auth_router.py — HTTP routes cho authentication
 """
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -13,13 +13,15 @@ from database.connection import get_db
 from models.user import User
 from schemas.auth import (
     MessageResponse,
-    TokenResponse,
+    ResendVerificationRequest,
     UserLogin,
     UserRegister,
     UserResponse,
+    VerificationStatusResponse,
 )
 from services.auth_service import AuthService
 from utils.config import get_settings
+from utils.rate_limiter import verification_status_tracker
 
 settings = get_settings()
 
@@ -39,14 +41,54 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
     return user
 
 
-@router.post("/login", response_model=TokenResponse)
-def login(data: UserLogin, db: Session = Depends(get_db)):
-    """Đăng nhập bằng email/password → trả JWT."""
+@router.post("/login", response_model=UserResponse)
+def login(data: UserLogin, response: Response, db: Session = Depends(get_db)):
+    """
+    Đăng nhập bằng email/password → set JWT vào httpOnly cookie (cùng cơ
+    chế với Google OAuth) thay vì trả token trong response body, tránh lưu
+    token ở localStorage (rủi ro bị đánh cắp qua XSS).
+    """
     service = AuthService(db)
     user, access_token = service.login_with_email(data.email, data.password)
-    return TokenResponse(
-        access_token=access_token,
-        user=UserResponse.model_validate(user),
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=settings.is_production,
+        samesite="lax",
+        max_age=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+    return user
+
+
+@router.get("/verification-status", response_model=VerificationStatusResponse)
+def verification_status(email: str, request: Request, db: Session = Depends(get_db)):
+    """
+    Polling: trang đăng ký gọi định kỳ để biết email đã được xác thực chưa.
+    Hữu ích khi link verify được mở ở tab/thiết bị khác.
+
+    Rate-limit theo IP (không theo email) — chặn spam hoặc dò trạng thái
+    verify của nhiều email, mà không ảnh hưởng user đang poll bình thường.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    if verification_status_tracker.is_locked(client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Quá nhiều yêu cầu. Vui lòng thử lại sau ít phút.",
+        )
+    verification_status_tracker.record_failed_attempt(client_ip)
+
+    service = AuthService(db)
+    return VerificationStatusResponse(verified=service.is_email_verified(email))
+
+
+@router.post("/resend-verification", response_model=MessageResponse)
+def resend_verification(data: ResendVerificationRequest, db: Session = Depends(get_db)):
+    """Gửi lại email xác thực — dùng khi user không nhận được hoặc đợi quá lâu."""
+    service = AuthService(db)
+    service.resend_verification_email(data.email)
+    return MessageResponse(
+        message="Nếu email của bạn chưa được xác thực, một email xác thực mới đã được gửi."
     )
 
 
