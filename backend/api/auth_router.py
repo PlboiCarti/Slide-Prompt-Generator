@@ -13,10 +13,12 @@ from database.connection import get_db
 from models.user import User
 from schemas.auth import (
     MessageResponse,
+    ResendVerificationRequest,
     TokenResponse,
     UserLogin,
     UserRegister,
     UserResponse,
+    VerificationStatusResponse,
 )
 from services.auth_service import AuthService
 from utils.config import get_settings
@@ -47,6 +49,26 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
     return TokenResponse(
         access_token=access_token,
         user=UserResponse.model_validate(user),
+    )
+
+
+@router.get("/verification-status", response_model=VerificationStatusResponse)
+def verification_status(email: str, db: Session = Depends(get_db)):
+    """
+    Polling: trang đăng ký gọi định kỳ để biết email đã được xác thực chưa.
+    Hữu ích khi link verify được mở ở tab/thiết bị khác.
+    """
+    service = AuthService(db)
+    return VerificationStatusResponse(verified=service.is_email_verified(email))
+
+
+@router.post("/resend-verification", response_model=MessageResponse)
+def resend_verification(data: ResendVerificationRequest, db: Session = Depends(get_db)):
+    """Gửi lại email xác thực — dùng khi user không nhận được hoặc đợi quá lâu."""
+    service = AuthService(db)
+    service.resend_verification_email(data.email)
+    return MessageResponse(
+        message="Nếu email của bạn chưa được xác thực, một email xác thực mới đã được gửi."
     )
 
 

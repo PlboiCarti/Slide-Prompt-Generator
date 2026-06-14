@@ -127,10 +127,22 @@ export interface SaveDraftPayload {
   description?: DesignDescription | null
 }
 
+export interface VerificationStatusResponse {
+  verified: boolean
+}
+
+export interface MessageResponse {
+  message: string
+}
+
 export const authAPI = {
   register: (data: RegisterPayload) => api.post('/auth/register', data),
   login: (data: LoginPayload) => api.post('/auth/login', data),
   verifyEmail: (token: string) => api.get(`/auth/verify-email?token=${token}`),
+  getVerificationStatus: (email: string) =>
+    api.get<VerificationStatusResponse>('/auth/verification-status', { params: { email } }),
+  resendVerification: (email: string) =>
+    api.post<MessageResponse>('/auth/resend-verification', { email }),
   getMe: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
   googleLoginUrl: () => `${API_URL}/auth/google`,
