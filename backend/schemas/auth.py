@@ -18,6 +18,11 @@ class UserLogin(BaseModel):
     password: str
 
 
+class ResendVerificationRequest(BaseModel):
+    """Body khi user yêu cầu gửi lại email xác thực."""
+    email: EmailStr
+
+
 # ── OUTPUT (response) ─────────────────────────────────────────────────
 class UserResponse(BaseModel):
     """Thông tin user trả về — KHÔNG có password."""
@@ -41,3 +46,8 @@ class TokenResponse(BaseModel):
 class MessageResponse(BaseModel):
     """Response chung khi chỉ cần báo message."""
     message: str
+
+
+class VerificationStatusResponse(BaseModel):
+    """Response cho polling trạng thái xác thực email."""
+    verified: bool

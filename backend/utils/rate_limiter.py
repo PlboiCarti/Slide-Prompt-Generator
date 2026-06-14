@@ -83,3 +83,8 @@ generate_tracker = LoginAttemptTracker(
     max_attempts=settings.MAX_GENERATE_ATTEMPTS,
     lockout_minutes=settings.GENERATE_LOCKOUT_MINUTES,
 )
+
+resend_tracker = LoginAttemptTracker(
+    max_attempts=settings.MAX_RESEND_ATTEMPTS,
+    lockout_minutes=settings.RESEND_LOCKOUT_MINUTES,
+)
