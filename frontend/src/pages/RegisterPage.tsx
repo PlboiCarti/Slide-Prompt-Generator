@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { ThemeToggle } from '../components/ThemeToggle'
 import './AuthPage.css'
 
 export function RegisterPage() {
@@ -43,6 +44,7 @@ export function RegisterPage() {
   if (registeredEmail) {
     return (
       <div className="auth-container">
+        <ThemeToggle />
         <div className="auth-glow auth-glow-pink" />
         <div className="auth-glow auth-glow-blue" />
 
@@ -73,6 +75,7 @@ export function RegisterPage() {
 
   return (
     <div className="auth-container">
+      <ThemeToggle />
       <div className="auth-glow auth-glow-pink" />
       <div className="auth-glow auth-glow-blue" />
 
@@ -80,7 +83,6 @@ export function RegisterPage() {
         <section className="auth-side-panel">
           <button className="auth-brand" onClick={() => navigate('/')}>
             <span className="auth-brand-logo">PB</span>
-            <span>Slide Prompt Builder</span>
           </button>
 
           <div className="auth-side-content">

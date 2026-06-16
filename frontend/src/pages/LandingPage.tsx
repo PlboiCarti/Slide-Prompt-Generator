@@ -1,6 +1,65 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { ThemeToggle } from '../components/ThemeToggle'
 import './LandingPage.css'
+
+const DECK_LAYOUTS = [
+  { type: 'key-message', label: 'Key Message' },
+  { type: 'split', label: 'Split' },
+  { type: 'grid-cards', label: 'Grid Cards' },
+  { type: 'timeline', label: 'Timeline' },
+  { type: 'big-stat', label: 'Big Stat' },
+] as const
+
+function DeckVisual({ type }: { type: (typeof DECK_LAYOUTS)[number]['type'] }) {
+  switch (type) {
+    case 'key-message':
+      return (
+        <div className="deck-visual deck-visual--key-message">
+          <span className="deck-bar deck-bar--accent" />
+          <span className="deck-bar deck-bar--sub" />
+        </div>
+      )
+    case 'split':
+      return (
+        <div className="deck-visual deck-visual--split">
+          <div className="deck-split-text">
+            <span className="deck-line" />
+            <span className="deck-line" />
+            <span className="deck-line deck-line--short" />
+          </div>
+          <div className="deck-split-block" />
+        </div>
+      )
+    case 'grid-cards':
+      return (
+        <div className="deck-visual deck-visual--grid-cards">
+          <span className="deck-card-cell" />
+          <span className="deck-card-cell" />
+          <span className="deck-card-cell" />
+          <span className="deck-card-cell" />
+        </div>
+      )
+    case 'timeline':
+      return (
+        <div className="deck-visual deck-visual--timeline">
+          <span className="deck-timeline-track" />
+          <span className="deck-timeline-dot" />
+          <span className="deck-timeline-dot" />
+          <span className="deck-timeline-dot" />
+          <span className="deck-timeline-dot" />
+        </div>
+      )
+    case 'big-stat':
+      return (
+        <div className="deck-visual deck-visual--big-stat">
+          <span className="deck-stat-number">72%</span>
+          <span className="deck-bar deck-bar--sub" />
+        </div>
+      )
+  }
+}
 
 const features = [
   {
@@ -35,10 +94,21 @@ const features = [
 export function LandingPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const [activeDeckIndex, setActiveDeckIndex] = useState(0)
 
   const handleGetStarted = () => {
     navigate(user ? '/generate' : '/login')
   }
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const interval = setInterval(() => {
+      setActiveDeckIndex(index => (index + 1) % DECK_LAYOUTS.length)
+    }, 2800)
+
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="landing-page">
@@ -59,6 +129,7 @@ export function LandingPage() {
             <button className="landing-nav-login" onClick={handleGetStarted}>
               {user ? 'Mở Builder' : 'Đăng nhập'}
             </button>
+            <ThemeToggle />
           </nav>
         </div>
       </header>
@@ -95,21 +166,20 @@ export function LandingPage() {
         <section id="demo" className="landing-section landing-demo-section">
           <div className="landing-section-heading">
             <span className="landing-kicker">Bản Demo Tương Tác Nhanh</span>
-            <h2>Từ ý tưởng thô đến AI prompt hoàn thiện.</h2>
+            <h2>Từ ý tưởng thô đến cấu trúc slide hoàn thiện.</h2>
             <p>
-              Mô phỏng luồng xử lý chính: nhập brief bên trái, AI tự động xem trước bản prompt 
-              bên phải theo phong cách dark tech thời thượng.
+              Mô phỏng luồng xử lý chính: nhập brief bên trái, AI tự động dựng cấu trúc slide
+              bên phải theo các bố cục chuẩn cho bài thuyết trình.
             </p>
           </div>
 
           <div className="landing-demo-card">
             <div className="landing-demo-toolbar">
-              <div className="landing-window-dots">
-                <span />
-                <span />
-                <span />
+              <div className="landing-demo-status">
+                <span className="landing-pulse" />
+                Đang dựng cấu trúc slide
               </div>
-              <span className="landing-demo-title">Prompt Builder Console</span>
+              <span className="landing-demo-title">Xem trước cấu trúc slide</span>
             </div>
 
             <div className="landing-demo-grid">
@@ -141,25 +211,17 @@ export function LandingPage() {
               </div>
 
               <div className="landing-demo-right">
-                <pre>
-{`SYSTEM:
-You are an expert presentation strategist.
-
-GOAL:
-Create a high-impact slide deck for an AI product.
-
-STYLE:
-- Dark tech visual direction
-- Neon gradient accents
-- Strong key message per slide
-
-OUTPUT:
-1. Slide title
-2. Key message
-3. Layout suggestion
-4. Visual direction
-5. Speaker notes`}
-                </pre>
+                <div className="landing-deck-grid">
+                  {DECK_LAYOUTS.map((layout, index) => (
+                    <article
+                      key={layout.type}
+                      className={`landing-deck-card ${index === activeDeckIndex ? 'active' : ''}`}
+                    >
+                      <span className="landing-deck-label">{layout.label}</span>
+                      <DeckVisual type={layout.type} />
+                    </article>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -168,7 +230,7 @@ OUTPUT:
         {/* Bento Features */}
         <section id="features" className="landing-section">
           <div className="landing-section-heading">
-            <span className="landing-kicker">Tính Năng Bento Grid</span>
+            <span className="landing-kicker">Tính Năng Cốt Lõi</span>
             <h2>Mọi công cụ cần thiết để tạo prompt slide tốt hơn.</h2>
             <p>
               Tập trung giải quyết 3 giá trị cốt lõi: tối ưu cấu trúc từ khóa, 
@@ -191,7 +253,7 @@ OUTPUT:
         </section>
       </main>
 
-      {/* Footer mới giúp trang cân đối hơn */}
+      {/* Footer */}
       <footer className="landing-footer">
         <div className="landing-footer-inner">
           <p>© {new Date().getFullYear()} Slide Prompt Builder. Tất cả các quyền được bảo lưu.</p>

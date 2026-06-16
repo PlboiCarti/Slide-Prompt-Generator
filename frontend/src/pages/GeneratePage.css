@@ -4,27 +4,25 @@
    ────────────────────────────────────────────────────── */
 
    .gen-page {
-    --bg-black: #000000;
-    --bg-card: #09090b;
-    --bg-card-soft: #111113;
-    --border: #27272a;
-    --border-soft: rgba(63, 63, 70, 0.72);
-  
-    --text-main: #ffffff;
-    --text-sub: #a1a1aa;
-    --text-muted: #71717a;
-  
-    --pink: #d946ef;
-    --violet: #7c3aed;
-    --cyan: #22d3ee;
-    --blue: #2563eb;
+    --bg-black: var(--bg-page);
+    --bg-card: var(--bg-surface);
+    --bg-card-soft: var(--bg-surface-soft);
+    --border: var(--border-color);
+
+    --text-main: var(--text-primary);
+    --text-sub: var(--text-secondary);
+
+    --pink: var(--accent-fuchsia);
+    --violet: var(--accent-violet);
+    --cyan: var(--accent-cyan-soft);
+    --blue: var(--accent-blue);
     --green: #22c55e;
     --red: #fb7185;
     --yellow: #facc15;
-  
-    --gradient-pink: linear-gradient(135deg, #d946ef 0%, #7c3aed 100%);
-    --gradient-blue: linear-gradient(135deg, #22d3ee 0%, #2563eb 100%);
-  
+
+    --gradient-pink: var(--gradient-mark);
+    --gradient-blue: var(--gradient-cyan-blue);
+
     min-height: 100vh;
     position: relative;
     overflow-x: hidden;
@@ -33,11 +31,9 @@
       radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.16), transparent 34%),
       radial-gradient(circle at 10% 22%, rgba(6, 182, 212, 0.12), transparent 28%),
       radial-gradient(circle at 90% 42%, rgba(217, 70, 239, 0.12), transparent 26%),
-      #000;
+      var(--bg-black);
     font-family:
-      Inter,
       "Plus Jakarta Sans",
-      "Geist Sans",
       system-ui,
       -apple-system,
       BlinkMacSystemFont,
@@ -51,8 +47,8 @@
     inset: 0;
     pointer-events: none;
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
     background-size: 64px 64px;
     mask-image: linear-gradient(to bottom, black, transparent 78%);
     z-index: 0;
@@ -66,7 +62,7 @@
     right: -170px;
     top: 260px;
     border-radius: 999px;
-    background: rgba(34, 211, 238, 0.18);
+    background: var(--glow-cyan);
     filter: blur(120px);
     pointer-events: none;
     z-index: 0;
@@ -78,8 +74,8 @@
     position: sticky;
     top: 0;
     z-index: 50;
-    background: rgba(0, 0, 0, 0.66);
-    border-bottom: 1px solid rgba(39, 39, 42, 0.9);
+    background: var(--bg-surface-translucent);
+    border-bottom: 1px solid var(--border-color);
     backdrop-filter: blur(18px);
   }
   
@@ -90,6 +86,12 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+  }
+
+  .gen-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
   
   .gen-brand {
@@ -117,7 +119,7 @@
   .gen-brand-name {
     font-weight: 750;
     font-size: 16px;
-    color: white;
+    color: var(--text-heading);
     letter-spacing: -0.02em;
   }
   
@@ -134,8 +136,8 @@
   }
   
   .gen-user:hover {
-    background: rgba(9, 9, 11, 0.86);
-    border-color: #3f3f46;
+    background: var(--bg-surface-translucent);
+    border-color: var(--border-soft);
     box-shadow: 0 0 24px rgba(168, 85, 247, 0.16);
   }
   
@@ -162,7 +164,7 @@
   }
   
   .gen-chevron {
-    color: #71717a;
+    color: var(--text-muted);
     transition: transform 0.2s ease;
   }
   
@@ -174,8 +176,8 @@
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    background: #09090b;
-    border: 1px solid #27272a;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
     border-radius: 16px;
     min-width: 180px;
     padding: 7px;
@@ -192,7 +194,7 @@
     background: transparent;
     text-align: left;
     font-size: 14px;
-    color: #d4d4d8;
+    color: var(--text-secondary);
     cursor: pointer;
     border-radius: 11px;
     transition: 0.15s ease;
@@ -200,7 +202,7 @@
   
   .gen-user-menu button:hover {
     background: rgba(168, 85, 247, 0.12);
-    color: white;
+    color: var(--text-heading);
   }
   
   /* Main */
@@ -224,7 +226,7 @@
     line-height: 0.98;
     font-weight: 900;
     letter-spacing: -0.065em;
-    color: white;
+    color: var(--text-heading);
   }
   
   .gen-intro h1::after {
@@ -234,7 +236,7 @@
     height: 4px;
     margin: 22px auto 0;
     border-radius: 999px;
-    background: linear-gradient(90deg, #d946ef, #7c3aed, #22d3ee);
+    background: linear-gradient(90deg, var(--accent-fuchsia), var(--accent-violet), var(--accent-cyan-soft));
     box-shadow:
       0 0 26px rgba(217, 70, 239, 0.35),
       0 0 30px rgba(34, 211, 238, 0.24);
@@ -253,11 +255,11 @@
   .gen-form {
     overflow: hidden;
     border-radius: 28px;
-    border: 1px solid #27272a;
+    border: 1px solid var(--border-color);
     background:
       radial-gradient(circle at 0% 0%, rgba(217, 70, 239, 0.1), transparent 34%),
       radial-gradient(circle at 100% 0%, rgba(34, 211, 238, 0.08), transparent 30%),
-      rgba(9, 9, 11, 0.94);
+      var(--bg-surface);
     box-shadow:
       0 30px 90px rgba(0, 0, 0, 0.52),
       inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -270,14 +272,14 @@
     align-items: center;
     gap: 12px;
     padding: 15px 22px;
-    border-bottom: 1px solid #27272a;
-    background: rgba(0, 0, 0, 0.28);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-surface-soft);
   }
   
   .gen-section {
     padding: 30px 30px 34px;
-    border-bottom: 1px solid #27272a;
-    background: rgba(9, 9, 11, 0.72);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-surface-translucent);
   }
   
   .gen-section:last-of-type {
@@ -289,7 +291,7 @@
     align-items: center;
     gap: 12px;
     margin: 0 0 22px;
-    color: white;
+    color: var(--text-heading);
     font-size: 13px;
     font-weight: 850;
     letter-spacing: 0.13em;
@@ -333,7 +335,7 @@
   
   .gen-field label {
     margin-bottom: 8px;
-    color: #f4f4f5;
+    color: var(--text-heading);
     font-size: 13px;
     font-weight: 750;
   }
@@ -344,10 +346,10 @@
     width: 100%;
     box-sizing: border-box;
     padding: 13px 14px;
-    border: 1px solid #3f3f46;
+    border: 1px solid var(--border-soft);
     border-radius: 16px;
-    background: rgba(0, 0, 0, 0.66);
-    color: white;
+    background: var(--bg-surface-translucent);
+    color: var(--text-primary);
     font-size: 14px;
     font-family: inherit;
     transition:
@@ -358,14 +360,14 @@
   
   .gen-field input::placeholder,
   .gen-field textarea::placeholder {
-    color: #52525b;
+    color: var(--text-muted);
   }
   
   .gen-field input:hover:not(:disabled),
   .gen-field textarea:hover:not(:disabled),
   .gen-field select:hover:not(:disabled) {
-    border-color: #52525b;
-    background: rgba(0, 0, 0, 0.86);
+    border-color: var(--text-muted);
+    background: var(--bg-surface);
   }
   
   .gen-field input:focus,
@@ -376,7 +378,7 @@
     box-shadow:
       0 0 0 4px rgba(34, 211, 238, 0.11),
       0 0 26px rgba(34, 211, 238, 0.1);
-    background: #000;
+    background: var(--bg-page);
   }
   
   .gen-field input:disabled,
@@ -391,8 +393,8 @@
   }
   
   .gen-field select option {
-    background: #09090b;
-    color: white;
+    background: var(--bg-surface);
+    color: var(--text-primary);
   }
   
   .gen-field textarea {
@@ -419,9 +421,9 @@
     align-items: center;
     gap: 13px;
     padding: 10px;
-    border: 1px solid #27272a;
+    border: 1px solid var(--border-color);
     border-radius: 17px;
-    background: rgba(0, 0, 0, 0.46);
+    background: var(--bg-surface-soft);
   }
   
   .gen-field input[type="color"] {
@@ -434,7 +436,7 @@
   
   .gen-color-hex {
     padding-right: 6px;
-    color: #a1a1aa;
+    color: var(--text-secondary);
     font-family:
       "SF Mono",
       "Cascadia Code",
@@ -450,11 +452,11 @@
     position: relative;
     display: block;
     padding: 20px 18px;
-    border: 1.5px dashed #3f3f46;
+    border: 1.5px dashed var(--border-soft);
     border-radius: 20px;
     background:
       radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.08), transparent 38%),
-      rgba(0, 0, 0, 0.5);
+      var(--bg-surface-soft);
     cursor: pointer;
     transition:
       border-color 0.18s ease,
@@ -466,7 +468,7 @@
     border-color: rgba(34, 211, 238, 0.72);
     background:
       radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.12), transparent 40%),
-      rgba(0, 0, 0, 0.74);
+      var(--bg-surface-soft);
     box-shadow: 0 0 28px rgba(34, 211, 238, 0.12);
   }
   
@@ -481,7 +483,7 @@
     display: flex;
     align-items: center;
     gap: 9px;
-    color: #d4d4d8;
+    color: var(--text-secondary);
     font-size: 14px;
     font-weight: 700;
   }
@@ -505,10 +507,10 @@
     align-items: center;
     justify-content: space-between;
     padding: 9px 14px;
-    border: 1px solid #27272a;
+    border: 1px solid var(--border-color);
     border-radius: 14px;
-    background: rgba(0, 0, 0, 0.5);
-    color: #d4d4d8;
+    background: var(--bg-surface-soft);
+    color: var(--text-secondary);
     font-size: 13px;
   }
 
@@ -522,7 +524,7 @@
   .gen-file-remove {
     background: none;
     border: none;
-    color: #71717a;
+    color: var(--text-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -547,15 +549,15 @@
   .gen-phase1-footer {
     padding: 26px 30px 30px;
     text-align: center;
-    border-top: 1px solid #27272a;
+    border-top: 1px solid var(--border-color);
     background:
       radial-gradient(circle at 50% 0%, rgba(217, 70, 239, 0.12), transparent 45%),
-      rgba(0, 0, 0, 0.32);
+      var(--bg-surface-soft);
   }
   
   .gen-phase1-hint {
     margin: 13px 0 0;
-    color: #71717a;
+    color: var(--text-muted);
     font-size: 12.5px;
   }
   
@@ -630,18 +632,18 @@
     padding: 15px 30px;
     display: flex;
     justify-content: flex-end;
-    border-top: 1px solid #27272a;
-    background: rgba(0, 0, 0, 0.26);
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-surface-soft);
   }
   
   .gen-reanalyze-btn,
   .gen-btn-secondary,
   .gen-copy-btn,
   .gen-draft-btn {
-    border: 1px solid #3f3f46;
+    border: 1px solid var(--border-soft);
     border-radius: 999px;
-    background: rgba(9, 9, 11, 0.82);
-    color: white;
+    background: var(--bg-surface-translucent);
+    color: var(--text-primary);
     font-size: 13px;
     font-weight: 750;
     cursor: pointer;
@@ -662,7 +664,7 @@
   .gen-draft-btn:hover:not(:disabled) {
     transform: translateY(-1px);
     border-color: rgba(34, 211, 238, 0.7);
-    background: rgba(9, 9, 11, 0.96);
+    background: var(--bg-surface);
     box-shadow: 0 0 26px rgba(34, 211, 238, 0.14);
   }
   
@@ -673,18 +675,33 @@
     transform: none;
     box-shadow: none;
   }
-  
+
+  /* Draft — accent treatment to stand out from other secondary buttons */
+
+  .gen-draft-btn {
+    border-color: rgba(37, 99, 235, 0.5);
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--accent-blue);
+  }
+
+  .gen-draft-btn:hover:not(:disabled) {
+    border-color: var(--accent-blue);
+    background: rgba(37, 99, 235, 0.2);
+    color: var(--text-primary);
+    box-shadow: 0 0 26px rgba(37, 99, 235, 0.22);
+  }
+
   /* Description panel */
   
   .gen-desc-panel {
     margin-top: 24px;
     overflow: hidden;
     border-radius: 28px;
-    border: 1px solid #27272a;
+    border: 1px solid var(--border-color);
     background:
       radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.1), transparent 34%),
       radial-gradient(circle at 100% 0%, rgba(217, 70, 239, 0.1), transparent 34%),
-      rgba(9, 9, 11, 0.94);
+      var(--bg-surface);
     box-shadow:
       0 30px 90px rgba(0, 0, 0, 0.45),
       inset 0 1px 0 rgba(255, 255, 255, 0.055);
@@ -697,8 +714,8 @@
     align-items: center;
     gap: 14px;
     flex-wrap: wrap;
-    border-bottom: 1px solid #27272a;
-    background: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-surface-soft);
   }
   
   .gen-desc-badge {
@@ -718,7 +735,7 @@
     flex: 1;
     min-width: 200px;
     margin: 0;
-    color: #a1a1aa;
+    color: var(--text-secondary);
     font-size: 13.5px;
     line-height: 1.65;
   }
@@ -744,23 +761,23 @@
     display: flex;
     flex-direction: column;
     gap: 3px;
-    color: #f4f4f5;
+    color: var(--text-heading);
     font-size: 12.5px;
     font-weight: 850;
   }
   
   .gen-desc-hint {
-    color: #71717a;
+    color: var(--text-muted);
     font-size: 11.5px;
     font-weight: 500;
   }
   
   .gen-desc-field textarea {
     padding: 12px 13px;
-    border: 1px solid #3f3f46;
+    border: 1px solid var(--border-soft);
     border-radius: 16px;
-    background: rgba(0, 0, 0, 0.58);
-    color: #e4e4e7;
+    background: var(--bg-surface-translucent);
+    color: var(--text-secondary);
     resize: vertical;
     font-family: inherit;
     font-size: 13px;
@@ -772,8 +789,8 @@
   }
   
   .gen-desc-field textarea:hover:not(:disabled) {
-    border-color: #52525b;
-    background: rgba(0, 0, 0, 0.76);
+    border-color: var(--text-muted);
+    background: var(--bg-surface);
   }
   
   .gen-desc-field textarea:focus {
@@ -782,7 +799,7 @@
     box-shadow:
       0 0 0 4px rgba(34, 211, 238, 0.1),
       0 0 24px rgba(34, 211, 238, 0.1);
-    background: #000;
+    background: var(--bg-page);
   }
   
   .gen-desc-field textarea:disabled {
@@ -836,11 +853,11 @@
   .gen-result-card {
     overflow: hidden;
     border-radius: 28px;
-    border: 1px solid #27272a;
+    border: 1px solid var(--border-color);
     background:
       radial-gradient(circle at 0% 0%, rgba(217, 70, 239, 0.1), transparent 36%),
       radial-gradient(circle at 100% 0%, rgba(34, 211, 238, 0.09), transparent 32%),
-      rgba(9, 9, 11, 0.94);
+      var(--bg-surface);
     box-shadow:
       0 30px 90px rgba(0, 0, 0, 0.52),
       inset 0 1px 0 rgba(255, 255, 255, 0.055);
@@ -856,8 +873,8 @@
     width: 46px;
     height: 46px;
     margin: 0 auto 22px;
-    border: 3px solid #27272a;
-    border-top-color: #22d3ee;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--accent-cyan-soft);
     border-radius: 999px;
     animation: spin 0.82s linear infinite;
     box-shadow: 0 0 26px rgba(34, 211, 238, 0.2);
@@ -871,14 +888,14 @@
   
   .gen-status-card h3 {
     margin: 0 0 8px;
-    color: white;
+    color: var(--text-heading);
     font-size: 18px;
     font-weight: 850;
   }
   
   .gen-status-hint {
     margin: 0;
-    color: #a1a1aa;
+    color: var(--text-secondary);
     font-size: 13.5px;
   }
   
@@ -889,7 +906,7 @@
     border-color: rgba(251, 113, 133, 0.38);
     background:
       radial-gradient(circle at 0% 0%, rgba(251, 113, 133, 0.14), transparent 35%),
-      rgba(9, 9, 11, 0.94);
+      var(--bg-surface);
   }
   
   .gen-error-card h3 {
@@ -914,13 +931,13 @@
     justify-content: space-between;
     align-items: flex-start;
     gap: 18px;
-    border-bottom: 1px solid #27272a;
-    background: rgba(0, 0, 0, 0.28);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-surface-soft);
   }
   
   .gen-result-header h3 {
     margin: 0 0 6px;
-    color: white;
+    color: var(--text-heading);
     font-size: 19px;
     font-weight: 900;
     letter-spacing: -0.03em;
@@ -928,7 +945,7 @@
   
   .gen-result-meta {
     margin: 0;
-    color: #a1a1aa;
+    color: var(--text-secondary);
     font-size: 13.5px;
   }
   
@@ -955,7 +972,7 @@
     padding: 28px;
     background:
       linear-gradient(180deg, rgba(0, 0, 0, 0.98), rgba(9, 9, 11, 0.98));
-    color: #d4d4d8;
+    color: var(--text-secondary);
     white-space: pre-wrap;
     word-wrap: break-word;
     font-family:
@@ -976,13 +993,13 @@
   }
   
   .gen-prompt-output::-webkit-scrollbar-track {
-    background: #09090b;
+    background: var(--bg-surface);
   }
   
   .gen-prompt-output::-webkit-scrollbar-thumb {
-    background: #3f3f46;
+    background: var(--border-soft);
     border-radius: 999px;
-    border: 2px solid #09090b;
+    border: 2px solid var(--bg-surface);
   }
   
   .gen-result-footer {
@@ -991,14 +1008,14 @@
     justify-content: space-between;
     align-items: center;
     gap: 18px;
-    border-top: 1px solid #27272a;
-    background: rgba(0, 0, 0, 0.28);
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-surface-soft);
   }
   
   .gen-result-hint {
     flex: 1;
     margin: 0;
-    color: #a1a1aa;
+    color: var(--text-secondary);
     font-size: 13.5px;
     line-height: 1.55;
   }
@@ -1017,7 +1034,7 @@
   
   .gen-draft-message {
     align-self: center;
-    color: #a1a1aa;
+    color: var(--text-secondary);
     font-size: 13px;
     font-weight: 650;
   }
@@ -1166,10 +1183,10 @@
     align-items: center;
     gap: 9px;
     padding: 9px 15px;
-    border: 1px solid #27272a;
+    border: 1px solid var(--border-color);
     border-radius: 999px;
-    background: rgba(9, 9, 11, 0.82);
-    color: #d4d4d8;
+    background: var(--bg-surface-translucent);
+    color: var(--text-secondary);
     font-size: 13px;
     font-weight: 650;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -1179,7 +1196,7 @@
     width: 8px;
     height: 8px;
     border-radius: 999px;
-    background: #22d3ee;
+    background: var(--accent-cyan-soft);
     box-shadow: 0 0 18px rgba(34, 211, 238, 0.9);
   }
   
@@ -1189,11 +1206,11 @@
     line-height: 0.98;
     font-weight: 900;
     letter-spacing: -0.07em;
-    color: white;
+    color: var(--text-heading);
   }
   
   .gen-gradient-pink {
-    background: linear-gradient(135deg, #d946ef 0%, #7c3aed 100%);
+    background: var(--gradient-mark);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -1202,7 +1219,7 @@
   .gen-builder-hero p {
     max-width: 760px;
     margin: 24px auto 0;
-    color: #a1a1aa;
+    color: var(--text-secondary);
     font-size: 16px;
     line-height: 1.75;
   }
@@ -1218,11 +1235,11 @@
   .gen-step {
     position: relative;
     overflow: hidden;
-    border: 1px solid #27272a;
+    border: 1px solid var(--border-color);
     border-radius: 18px;
-    background: rgba(9, 9, 11, 0.76);
+    background: var(--bg-surface-translucent);
     padding: 13px 12px;
-    color: #71717a;
+    color: var(--text-muted);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1235,8 +1252,8 @@
     border-radius: 10px;
     display: grid;
     place-items: center;
-    background: #18181b;
-    color: #a1a1aa;
+    background: var(--bg-surface-soft);
+    color: var(--text-secondary);
     font-size: 12px;
     font-weight: 850;
   }
@@ -1247,24 +1264,24 @@
   }
   
   .gen-step.active {
-    color: white;
+    color: var(--text-primary);
     border-color: rgba(34, 211, 238, 0.62);
     box-shadow: 0 0 26px rgba(34, 211, 238, 0.12);
   }
   
   .gen-step.active span {
-    background: linear-gradient(135deg, #22d3ee, #2563eb);
+    background: var(--gradient-cyan-blue);
     color: white;
     box-shadow: 0 0 18px rgba(34, 211, 238, 0.28);
   }
   
   .gen-step.done {
-    color: white;
+    color: var(--text-primary);
     border-color: rgba(217, 70, 239, 0.52);
   }
   
   .gen-step.done span {
-    background: linear-gradient(135deg, #d946ef, #7c3aed);
+    background: var(--gradient-mark);
     color: white;
   }
   
@@ -1275,11 +1292,11 @@
   .gen-console-topbar {
     min-height: 52px;
     padding: 0 20px;
-    border-bottom: 1px solid #27272a;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
     gap: 14px;
-    background: rgba(0, 0, 0, 0.28);
+    background: var(--bg-surface-soft);
   }
   
   .gen-window-dots {
@@ -1292,7 +1309,7 @@
     width: 10px;
     height: 10px;
     border-radius: 999px;
-    background: #3f3f46;
+    background: var(--border-soft);
   }
   
   .gen-window-dots span:nth-child(1) {
@@ -1308,7 +1325,7 @@
   }
   
   .gen-console-title {
-    color: #a1a1aa;
+    color: var(--text-secondary);
     font-size: 13px;
     font-weight: 650;
     margin-right: auto;
@@ -1330,7 +1347,7 @@
   
   .gen-section-heading p {
     margin: 0;
-    color: #a1a1aa;
+    color: var(--text-secondary);
     font-size: 13.5px;
     line-height: 1.65;
   }
@@ -1356,15 +1373,15 @@
     border-radius: 11px;
     display: grid;
     place-items: center;
-    border: 1px solid #27272a;
-    background: #09090b;
-    color: #22d3ee;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--accent-cyan-soft);
     font-size: 11px;
     font-weight: 850;
   }
   
   .gen-subsection-title strong {
-    color: white;
+    color: var(--text-heading);
     font-size: 14px;
   }
   
@@ -1380,7 +1397,12 @@
   .gen-option-grid-layout {
     grid-template-columns: repeat(3, 1fr);
   }
-  
+
+  .gen-custom-field {
+    margin-top: 14px;
+    margin-bottom: 0;
+  }
+
   .gen-option-card {
     position: relative;
     overflow: hidden;
@@ -1388,11 +1410,11 @@
     min-height: 138px;
     padding: 18px;
     border-radius: 20px;
-    border: 1px solid #27272a;
+    border: 1px solid var(--border-color);
     background:
       radial-gradient(circle at 100% 0%, rgba(168, 85, 247, 0.07), transparent 38%),
-      #09090b;
-    color: white;
+      var(--bg-surface);
+    color: var(--text-primary);
     cursor: pointer;
     transition:
       transform 0.18s ease,
@@ -1414,7 +1436,7 @@
   
   .gen-option-card:hover:not(:disabled) {
     transform: translateY(-3px);
-    border-color: #52525b;
+    border-color: var(--text-muted);
     box-shadow:
       0 18px 52px rgba(0, 0, 0, 0.35),
       0 0 26px rgba(168, 85, 247, 0.12);
@@ -1451,11 +1473,22 @@
     place-items: center;
     margin-bottom: 16px;
     border-radius: 14px;
-    background: linear-gradient(135deg, rgba(217, 70, 239, 0.9), rgba(37, 99, 235, 0.9));
-    color: white;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-soft);
+    color: var(--accent-cyan-soft);
     font-size: 15px;
     font-weight: 900;
-    box-shadow: 0 0 24px rgba(168, 85, 247, 0.18);
+    transition:
+      background 0.18s ease,
+      color 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+
+  .gen-option-card.active .gen-option-icon {
+    border-color: transparent;
+    background: var(--gradient-mark);
+    color: white;
+    box-shadow: 0 0 24px rgba(168, 85, 247, 0.22);
   }
   
   .gen-option-card strong {
@@ -1467,7 +1500,7 @@
   
   .gen-option-card small {
     display: block;
-    color: #a1a1aa;
+    color: var(--text-secondary);
     font-size: 12.5px;
     line-height: 1.55;
   }
@@ -1489,10 +1522,10 @@
   
   .gen-slide-pills button,
   .gen-language-toggle button {
-    border: 1px solid #27272a;
+    border: 1px solid var(--border-color);
     border-radius: 999px;
-    background: rgba(9, 9, 11, 0.82);
-    color: #a1a1aa;
+    background: var(--bg-surface-translucent);
+    color: var(--text-secondary);
     padding: 9px 13px;
     font-size: 13px;
     font-weight: 750;
@@ -1502,13 +1535,13 @@
   
   .gen-slide-pills button:hover:not(:disabled),
   .gen-language-toggle button:hover:not(:disabled) {
-    color: white;
-    border-color: #52525b;
+    color: var(--text-primary);
+    border-color: var(--text-muted);
   }
   
   .gen-slide-pills button.active,
   .gen-language-toggle button.active {
-    color: white;
+    color: var(--text-primary);
     border-color: rgba(34, 211, 238, 0.7);
     box-shadow: 0 0 22px rgba(34, 211, 238, 0.12);
   }
@@ -1530,7 +1563,7 @@
     width: 34px;
     height: 34px;
     border-radius: 999px;
-    border: 2px solid #27272a;
+    border: 2px solid var(--border-color);
     background: var(--preset-color);
     cursor: pointer;
     transition:
@@ -1541,11 +1574,11 @@
   
   .gen-color-presets button:hover:not(:disabled) {
     transform: translateY(-2px);
-    border-color: #a1a1aa;
+    border-color: var(--text-secondary);
   }
   
   .gen-color-presets button.active {
-    border-color: white;
+    border-color: var(--text-primary);
     box-shadow:
       0 0 0 4px rgba(255, 255, 255, 0.08),
       0 0 24px color-mix(in srgb, var(--preset-color) 60%, transparent);

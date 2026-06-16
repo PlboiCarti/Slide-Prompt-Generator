@@ -222,10 +222,7 @@ class AuthService:
             )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=(
-                    "Email này đã được đăng ký bằng password. "
-                    "Vui lòng đăng nhập bằng password trước."
-                ),
+                detail="Email đã được đăng ký bằng mật khẩu. Vui lòng đăng nhập bằng mật khẩu.",
             )
 
         # Bước 3: User hoàn toàn mới → tạo account
