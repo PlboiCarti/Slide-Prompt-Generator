@@ -647,3 +647,18 @@
 .history-actions .history-secondary:hover {
   color: var(--text-primary);
 }
+
+.history-actions .theme-toggle {
+  width: 42px;
+  height: 42px;
+  padding: 0 !important;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+}
+
+.history-actions .theme-toggle svg {
+  width: 20px;
+  height: 20px;
+}

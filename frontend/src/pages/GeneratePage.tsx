@@ -1,3 +1,21 @@
+/**
+ * GeneratePage — Trang tạo Master Prompt (hai phase)
+ *
+ * Luồng chính:
+ *   Phase 1 — Người dùng điền brief (mục đích, đối tượng, style, layout, màu sắc).
+ *             Nhấn "Phân tích Định hướng Thiết kế" → POST /api/generate-description (~3–5s).
+ *             Backend trả về DesignDescription (tone, font, density...) để người dùng xem/sửa.
+ *
+ *   Phase 2 — Người dùng dán nội dung hoặc upload file, nhấn "Tạo Master Prompt"
+ *             → POST /api/generate → nhận job_id → frontend polling GET /api/jobs/{id}
+ *             mỗi 2s cho đến khi status = COMPLETED hoặc FAILED.
+ *
+ * Side effects đáng chú ý:
+ *   - Auto-save: debounce 3s sau khi purpose/audience thay đổi, lưu ngầm vào draft API.
+ *   - Keyboard shortcut: Ctrl/Cmd+Enter trong content textarea kích hoạt submit Phase 2.
+ *   - Draft restore: nếu navigate('/generate', { state: { draft } }), toàn bộ form được hydrate.
+ *   - Option cards được bọc trong React.memo + useCallback để tránh re-render cascade khi gõ.
+ */
 import { useState, useEffect, ChangeEvent, useRef, memo, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -5,10 +23,12 @@ import { promptAPI, DesignDescription, draftAPI, SaveDraftPayload, JobStatusResp
 import { ThemeToggle } from '../components/ThemeToggle'
 import './GeneratePage.css'
 
-// Giá trị đặc biệt cho lựa chọn "Khác" (tự nhập)
+// ── MODULE-LEVEL CONSTANTS ────────────────────────────────────────────────────
+
+// Sentinel value — dùng để phân biệt lựa chọn "Khác / Tự nhập" với các preset có sẵn.
 const CUSTOM_OPTION = '__custom__'
 
-// Phải khớp với backend
+// Các giá trị value phải khớp chính xác với Enum/string mà backend chấp nhận.
 const STYLE_OPTIONS = [
   {
     value: 'minimalist',
@@ -195,6 +215,14 @@ const DESC_HINTS: Record<keyof DesignDescription, string> = {
   visual: 'Loại hình ảnh, icon, biểu đồ phù hợp',
 }
 
+// ── UI RENDER HELPERS ─────────────────────────────────────────────────────────
+
+/**
+ * GenDeckVisual — Miniature SVG-less slide preview.
+ * Render layout preview dạng thu nhỏ bằng CSS thuần, không có ảnh thật.
+ * Được dùng trong layout preview panel với React key={layout} để buộc remount
+ * và kích hoạt lại animation gdeck-enter mỗi lần layout thay đổi.
+ */
 function GenDeckVisual({ type }: { type: string }) {
   switch (type) {
     case 'key_message':
@@ -279,6 +307,16 @@ function GenDeckVisual({ type }: { type: string }) {
   }
 }
 
+/**
+ * MemoizedOptionCard — Card lựa chọn style/layout được bọc trong React.memo.
+ *
+ * Lý do memo hóa: GeneratePage re-render mỗi khi formData thay đổi (kể cả khi
+ * người dùng đang gõ vào content textarea). Nếu không memo, 18 card (9 style +
+ * 9 layout) sẽ re-render đồng loạt sau mỗi keystroke — gây jank rõ rệt.
+ *
+ * Với memo + stable onSelect (useCallback) + option từ module-level constant,
+ * chỉ đúng 2 card thay đổi isActive khi người dùng click chọn card mới.
+ */
 const MemoizedOptionCard = memo(function OptionCard({
   option,
   isActive,
@@ -308,12 +346,79 @@ const MemoizedOptionCard = memo(function OptionCard({
   )
 })
 
+/**
+ * StyleCardGrid — Renders all 9 style option cards as a single memoized subtree.
+ *
+ * Hoist the entire grid outside GeneratePage so React never visits this tree
+ * when formData.content / purpose / audience change. With just MemoizedOptionCard,
+ * React still allocates 9 JSX descriptors and runs 9 shallow comparisons per
+ * keystroke. With this wrapper, the whole subtree is skipped in one check.
+ *
+ * Props only change when: user picks a different style card, or form locks/unlocks.
+ */
+const StyleCardGrid = memo(function StyleCardGrid({
+  selectedValue,
+  isCustom,
+  disabled,
+  onSelect,
+}: {
+  selectedValue: string
+  isCustom: boolean
+  disabled: boolean
+  onSelect: (value: string, isCustom: boolean) => void
+}) {
+  return (
+    <div className="gen-option-grid gen-option-grid-style">
+      {STYLE_OPTIONS.map(option => (
+        <MemoizedOptionCard
+          key={option.value}
+          option={option}
+          isActive={isCustom ? option.value === CUSTOM_OPTION : selectedValue === option.value}
+          disabled={disabled}
+          cardClass=""
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
+  )
+})
+
+/** LayoutCardGrid — Same isolation pattern for the 9 layout option cards. */
+const LayoutCardGrid = memo(function LayoutCardGrid({
+  selectedValue,
+  isCustom,
+  disabled,
+  onSelect,
+}: {
+  selectedValue: string
+  isCustom: boolean
+  disabled: boolean
+  onSelect: (value: string, isCustom: boolean) => void
+}) {
+  return (
+    <div className="gen-option-grid gen-option-grid-layout">
+      {LAYOUT_OPTIONS.map(option => (
+        <MemoizedOptionCard
+          key={option.value}
+          option={option}
+          isActive={isCustom ? option.value === CUSTOM_OPTION : selectedValue === option.value}
+          disabled={disabled}
+          cardClass="gen-layout-card"
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
+  )
+})
+
+// ── COMPONENT ─────────────────────────────────────────────────────────────────
+
 export function GeneratePage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Form data
+  // ── Form state — một object duy nhất để dễ serialize thành draft/generate payload
   const [formData, setFormData] = useState({
     purpose: '',
     audience: '',
@@ -351,15 +456,26 @@ export function GeneratePage() {
   const [copied, setCopied] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
 
+  // Local state for the content textarea — typing here only updates contentLocal + contentLatestRef.
+  // formData.content is NOT mutated on every keystroke, so GeneratePage never re-renders from
+  // content input. The ref is read synchronously by handleSubmit and draft saves to guarantee
+  // the API always receives the latest value regardless of blur timing.
+  const [contentLocal, setContentLocal] = useState(formData.content)
+  const contentLatestRef = useRef(formData.content)
+
   const descRef = useRef<HTMLDivElement>(null)
   const resultRef = useRef<HTMLDivElement>(null)
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null)
+  // "Latest ref" pattern — giữ reference đến phiên bản mới nhất của handleSubmit mà không
+  // làm keyboard shortcut effect (deps=[]) phải re-register listener mỗi render.
   const latestHandleSubmit = useRef<(e: React.FormEvent) => Promise<void>>(async (_e) => {})
 
   useEffect(() => {
     if (!user) navigate('/login')
   }, [user, navigate])
 
+  // Hydrate form từ draft khi navigate('/generate', { state: { draft } }).
+  // replaceState ngay sau để URL không giữ lại state cũ nếu user F5 trang.
   useEffect(() => {
     const draft = (location.state as { draft?: SaveDraftPayload & { draftId?: string } } | null)?.draft
     if (!draft) return
@@ -389,7 +505,9 @@ export function GeneratePage() {
     }
   }, [description])
 
-  // Poll job status mỗi 2s
+  // Polling Phase 2 — kiểm tra trạng thái job mỗi 2s.
+  // 2s là điểm cân bằng giữa UX (phản hồi nhanh) và tải server (không spam quá nhiều request).
+  // Backend pipeline thường mất 5–20s tuỳ độ phức tạp nội dung.
   useEffect(() => {
     if (!jobId || !isPolling) return
     const checkStatus = async () => {
@@ -400,6 +518,8 @@ export function GeneratePage() {
           setIsPolling(false)
         }
       } catch (err: any) {
+        // Không thể lấy trạng thái job — có thể mạng bị ngắt hoặc server restart.
+        // Đặt status FAILED để hiện thông báo lỗi thay vì polling vô tận.
         setJobStatus({
           job_id: jobId,
           status: 'FAILED',
@@ -423,13 +543,27 @@ export function GeneratePage() {
     }
   }, [jobStatus?.status])
 
-  // Tự động lưu draft sau 3s khi người dùng ngừng nhập purpose/audience
+  // Sync external mutations of formData.content (clear button, draft hydration) into contentLocal.
+  // Guard condition prevents our own typing from looping: handleContentChange keeps
+  // contentLatestRef.current in sync with what was typed, so the check only fires when something
+  // outside (clear button / draft load) changes formData.content.
+  useEffect(() => {
+    if (formData.content !== contentLatestRef.current) {
+      contentLatestRef.current = formData.content
+      setContentLocal(formData.content)
+    }
+  }, [formData.content])
+
+  // Auto-save debounce — chỉ trigger khi purpose/audience thay đổi (2 trường có ý nghĩa nhất).
+  // 3s là khoảng đủ để người dùng ngừng gõ mà không cảm thấy bị "spam lưu".
+  // Snapshot formData/description/currentDraftId tại thời điểm effect chạy để tránh stale
+  // closure khi timeout fire sau 3s (các field khác có thể đã thay đổi trong lúc đó).
   useEffect(() => {
     const purpose = formData.purpose.trim()
     const audience = formData.audience.trim()
     if (purpose.length < 3 || audience.length < 3) return
 
-    const payload: SaveDraftPayload = { ...formData, description: description || null }
+    const payload: SaveDraftPayload = { ...formData, content: contentLatestRef.current, description: description || null }
     const snapDraftId = currentDraftId
 
     const timer = setTimeout(async () => {
@@ -483,6 +617,9 @@ export function GeneratePage() {
     updateFormField(name as keyof typeof formData, value)
   }
 
+  // deps=[] an toàn vì dùng functional updater `prev => ...` — không cần capture formData.
+  // Gọi setDescription(null) khi các field thiết kế thay đổi để buộc người dùng
+  // chạy lại Phase 1 và tránh mâu thuẫn giữa DesignDescription cũ và brief mới.
   const updateFormField = useCallback((name: keyof typeof formData, value: string | number) => {
     setFormData(prev => ({ ...prev, [name]: value }))
     if (['purpose', 'audience', 'style', 'primary_layout', 'primary_color', 'language'].includes(name)) {
@@ -491,15 +628,37 @@ export function GeneratePage() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // deps=[] is correct: every setter below (setIsCustomStyle, setFormData, setDescription,
+  // setDescError) has a stable identity guaranteed by React. The functional updater for
+  // setFormData avoids capturing formData in the closure, so these handlers never go stale.
+  // Removing the [updateFormField] dep closes the last reference that could theoretically
+  // change (even though updateFormField itself is [] — belt-and-suspenders).
   const handleStyleSelect = useCallback((value: string, isCustom: boolean) => {
     setIsCustomStyle(isCustom)
-    updateFormField('style', isCustom ? '' : value)
-  }, [updateFormField])
+    setFormData(prev => ({ ...prev, style: isCustom ? '' : value }))
+    setDescription(null)
+    setDescError('')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLayoutSelect = useCallback((value: string, isCustom: boolean) => {
     setIsCustomLayout(isCustom)
-    updateFormField('primary_layout', isCustom ? '' : value)
-  }, [updateFormField])
+    setFormData(prev => ({ ...prev, primary_layout: isCustom ? '' : value }))
+    setDescription(null)
+    setDescError('')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Stable handler: updates only local state + ref, never formData.
+  // GeneratePage does NOT re-render from content keystrokes.
+  const handleContentChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
+    const { value } = e.target
+    contentLatestRef.current = value
+    setContentLocal(value)
+  }, [])
+
+  // Flush typed content to formData on blur (keeps formData consistent for edge-case reads).
+  const handleContentBlur = useCallback(() => {
+    setFormData(prev => ({ ...prev, content: contentLatestRef.current }))
+  }, [])
 
   const resizeTextarea = (textarea: HTMLTextAreaElement | null) => {
     if (!textarea) return
@@ -525,6 +684,8 @@ export function GeneratePage() {
     setFiles(prev => prev.filter((_, i) => i !== index))
   }
 
+  // ── DRAFT ─────────────────────────────────────────────────────────────────
+
   const handleSaveDraft = async () => {
     setDraftMessage('')
     if (formData.purpose.trim().length < 3 || formData.audience.trim().length < 3) {
@@ -535,6 +696,7 @@ export function GeneratePage() {
     setIsDraftSaving(true)
     const payload: SaveDraftPayload = {
       ...formData,
+      content: contentLatestRef.current,
       description: description || null,
     }
 
@@ -548,13 +710,15 @@ export function GeneratePage() {
         setDraftMessage('Đã lưu nháp')
       }
     } catch (err: any) {
+      // Lấy chuỗi lỗi từ FastAPI response body: { detail: "..." }
       setDraftMessage(err.response?.data?.detail || 'Lưu nháp thất bại')
     } finally {
       setIsDraftSaving(false)
     }
   }
 
-  // ── PHASE 1: Phân tích thiết kế ──────────────────────────────────
+  // ── PHASE 1: AI DESIGN ANALYSIS ──────────────────────────────────────────
+
   const handleAnalyze = async () => {
     if (!formData.purpose.trim() || !formData.audience.trim()) {
       setDescError('Vui lòng điền đầy đủ Mục đích và Đối tượng.')
@@ -575,18 +739,21 @@ export function GeneratePage() {
       })
       setDescription(res.data)
     } catch (err: any) {
+      // err.response?.data?.detail — chuỗi lỗi từ FastAPI (rate limit, Gemini quota, v.v.)
       setDescError(err.response?.data?.detail || 'Lỗi khi phân tích thiết kế. Vui lòng thử lại.')
     } finally {
       setIsAnalyzing(false)
     }
   }
 
-  // ── PHASE 2: Sinh Master Prompt ───────────────────────────────────
+  // ── PHASE 2: MASTER PROMPT GENERATION ────────────────────────────────────
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitError('')
 
-    if (!formData.content.trim() && files.length === 0) {
+    // Read from ref, not formData.content — the textarea may not have blurred yet.
+    if (!contentLatestRef.current.trim() && files.length === 0) {
       setSubmitError('Vui lòng cung cấp ít nhất một trong hai: nội dung văn bản hoặc tải file.')
       return
     }
@@ -599,12 +766,14 @@ export function GeneratePage() {
     try {
       const response = await promptAPI.generate({
         ...formData,
+        content: contentLatestRef.current,
         files: files.length > 0 ? files : undefined,
         description: description || undefined,
       })
       setJobId(response.data.job_id)
       setIsPolling(true)
     } catch (err: any) {
+      // Axios đặt backend response vào err.response.data; FastAPI trả lỗi dạng { detail: "..." }
       const detail = err.response?.data?.detail
       setSubmitError(detail || 'Đã xảy ra lỗi. Vui lòng thử lại.')
     } finally {
@@ -612,7 +781,11 @@ export function GeneratePage() {
     }
   }
 
+  // Cập nhật ref mỗi render để keyboard shortcut effect (deps=[]) luôn gọi đúng
+  // phiên bản handleSubmit mới nhất — tránh stale closure qua event listener tồn tại lâu dài.
   latestHandleSubmit.current = handleSubmit
+
+  // ── RESULT & UTILITY HANDLERS ────────────────────────────────────────────
 
   const handleCopy = async () => {
     const text = jobStatus?.result?.full_master_prompt
@@ -622,6 +795,7 @@ export function GeneratePage() {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
+      // Clipboard API thất bại (iframe sandbox hoặc Firefox cũ) — fallback execCommand
       const ta = document.createElement('textarea')
       ta.value = text
       document.body.appendChild(ta)
@@ -825,18 +999,12 @@ export function GeneratePage() {
                 <strong>Phong cách</strong>
               </div>
 
-              <div className="gen-option-grid gen-option-grid-style">
-                {STYLE_OPTIONS.map(option => (
-                  <MemoizedOptionCard
-                    key={option.value}
-                    option={option}
-                    isActive={isCustomStyle ? option.value === CUSTOM_OPTION : formData.style === option.value}
-                    disabled={isFormLocked}
-                    cardClass=""
-                    onSelect={handleStyleSelect}
-                  />
-                ))}
-              </div>
+              <StyleCardGrid
+                selectedValue={formData.style}
+                isCustom={isCustomStyle}
+                disabled={isFormLocked}
+                onSelect={handleStyleSelect}
+              />
 
               {isCustomStyle && (
                 <div className="gen-field gen-custom-field">
@@ -858,18 +1026,12 @@ export function GeneratePage() {
                 <strong>Bố cục chính</strong>
               </div>
 
-              <div className="gen-option-grid gen-option-grid-layout">
-                {LAYOUT_OPTIONS.map(option => (
-                  <MemoizedOptionCard
-                    key={option.value}
-                    option={option}
-                    isActive={isCustomLayout ? option.value === CUSTOM_OPTION : formData.primary_layout === option.value}
-                    disabled={isFormLocked}
-                    cardClass="gen-layout-card"
-                    onSelect={handleLayoutSelect}
-                  />
-                ))}
-              </div>
+              <LayoutCardGrid
+                selectedValue={formData.primary_layout}
+                isCustom={isCustomLayout}
+                disabled={isFormLocked}
+                onSelect={handleLayoutSelect}
+              />
 
               {isCustomLayout && (
                 <div className="gen-field gen-custom-field">
@@ -1092,17 +1254,22 @@ export function GeneratePage() {
                   <textarea
                     ref={contentTextareaRef}
                     name="content"
-                    value={formData.content}
-                    onChange={handleInputChange}
+                    value={contentLocal}
+                    onChange={handleContentChange}
+                    onBlur={handleContentBlur}
                     placeholder="Dán nội dung bạn muốn chuyển thành slide..."
                     rows={8}
                     disabled={isRunning}
                   />
-                  {formData.content.length > 0 && (
+                  {contentLocal.length > 0 && (
                     <button
                       type="button"
                       className="gen-content-clear"
-                      onClick={() => updateFormField('content', '')}
+                      onClick={() => {
+                        contentLatestRef.current = ''
+                        setContentLocal('')
+                        setFormData(prev => ({ ...prev, content: '' }))
+                      }}
                       disabled={isRunning}
                       aria-label="Xóa nội dung"
                     >
