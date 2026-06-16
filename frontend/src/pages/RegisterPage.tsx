@@ -80,40 +80,15 @@ export function RegisterPage() {
       <div className="auth-glow auth-glow-blue" />
 
       <div className="auth-shell">
-        <section className="auth-side-panel">
-          <button className="auth-brand" onClick={() => navigate('/')}>
-            <span className="auth-brand-logo">PB</span>
-          </button>
-
-          <div className="auth-side-content">
-            <span className="auth-kicker">Create Account</span>
-            <h2>
-              Start building
-              <span> smarter slide prompts.</span>
-            </h2>
-            <p>
-              Tạo tài khoản để lưu draft, quản lý lịch sử prompt và tiếp tục pipeline
-              sinh Master Prompt cho slide deck.
-            </p>
-          </div>
-
-          <div className="auth-side-stats">
-            <div>
-              <strong>Drafts</strong>
-              <span>Lưu tiến trình</span>
-            </div>
-            <div>
-              <strong>History</strong>
-              <span>Xem prompt cũ</span>
-            </div>
-          </div>
-        </section>
-
         <section className="auth-card">
           <div className="auth-card-header">
-            <span className="auth-card-badge">New Workspace</span>
-            <h1>Đăng ký</h1>
-            <p>Tạo tài khoản Prompt Builder mới.</p>
+            <button className="auth-brand" onClick={() => navigate('/')}>
+              <span className="auth-brand-logo">PB</span>
+              <span className="auth-brand-name">Prompt Builder</span>
+            </button>
+            <span className="auth-kicker">Tạo tài khoản</span>
+            <h1>Bắt đầu hành trình</h1>
+            <p>Lưu draft, xem lịch sử và xây dựng Master Prompt chuyên nghiệp.</p>
           </div>
 
           {error && <div className="error-message">{error}</div>}

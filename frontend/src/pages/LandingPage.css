@@ -22,10 +22,18 @@
     inset: 0;
     pointer-events: none;
     background-image:
-      linear-gradient(var(--grid-line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+      linear-gradient(var(--grid-line) 1.2px, transparent 1.2px),
+      linear-gradient(90deg, var(--grid-line) 1.2px, transparent 1.2px);
     background-size: 64px 64px;
     mask-image: linear-gradient(to bottom, black, transparent 76%);
+    animation: grid-mesh-move 14s linear infinite;
+    will-change: background-position;
+    transform: translateZ(0);
+  }
+
+  @keyframes grid-mesh-move {
+    from { background-position: 0 0, 0 0; }
+    to   { background-position: 64px 64px, 64px 64px; }
   }
   
   .landing-glow {
