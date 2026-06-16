@@ -61,24 +61,15 @@ export function LoginPage() {
       <div className="auth-glow auth-glow-blue" />
 
       <div className="auth-shell">
-        <section className="auth-side-panel">
-          <button className="auth-brand" onClick={() => navigate('/')}>
-            <span className="auth-brand-logo">PB</span>
-          </button>
-
-          <div className="auth-side-content">
-            <span className="auth-kicker">AI Prompt Workflow</span>
-            <h2>
-              Chào mừng trở lại
-              <span> với Prompt Builder.</span>
-            </h2>
-          </div>
-        </section>
-
         <section className="auth-card">
           <div className="auth-card-header">
-            <h1>Đăng nhập</h1>
-            <p>Truy cập Prompt Builder console của bạn.</p>
+            <button className="auth-brand" onClick={() => navigate('/')}>
+              <span className="auth-brand-logo">PB</span>
+              <span className="auth-brand-name">Prompt Builder</span>
+            </button>
+            <span className="auth-kicker">AI Prompt Workflow</span>
+            <h1>Chào mừng trở lại</h1>
+            <p>Truy cập workspace và tiếp tục xây dựng Master Prompt của bạn.</p>
           </div>
 
           {successBanner && <div className="success-message">{successBanner}</div>}
@@ -112,7 +103,7 @@ export function LoginPage() {
             </button>
           </form>
 
-          <div className="divider">hoặc</div>
+          <div className="divider">hoặc tiếp tục với</div>
 
           <button onClick={handleGoogleLogin} className="btn-google">
             <span className="google-dot">G</span>
@@ -120,7 +111,7 @@ export function LoginPage() {
           </button>
 
           <p className="auth-link">
-            Chưa có tài khoản? <Link to="/register">Đăng ký</Link>
+            Chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link>
           </p>
         </section>
       </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent, useRef } from 'react'
+import { useState, useEffect, ChangeEvent, useRef, memo, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { promptAPI, DesignDescription, draftAPI, SaveDraftPayload, JobStatusResponse } from '../services/api'
@@ -15,54 +15,72 @@ const STYLE_OPTIONS = [
     label: 'Minimalist',
     icon: '◇',
     desc: 'Ít chữ, nhiều khoảng trống, sạch và dễ đọc.',
+    accent: '#94a3b8',
+    glow: 'rgba(148, 163, 184, 0.25)'
   },
   {
     value: 'modern',
     label: 'Modern',
     icon: '✦',
     desc: 'Hiện đại, cân bằng giữa chuyên nghiệp và nổi bật.',
+    accent: '#a855f7',
+    glow: 'rgba(168, 85, 247, 0.35)'
   },
   {
     value: 'storytelling',
     label: 'Storytelling',
     icon: '⌁',
     desc: 'Dẫn dắt theo câu chuyện, phù hợp thuyết trình truyền cảm hứng.',
+    accent: '#f43f5e',
+    glow: 'rgba(244, 63, 94, 0.35)'
   },
   {
     value: 'academic',
     label: 'Academic',
     icon: '▤',
     desc: 'Rõ ràng, logic, phù hợp bài học hoặc báo cáo học thuật.',
+    accent: '#3b82f6',
+    glow: 'rgba(59, 130, 246, 0.35)'
   },
   {
     value: 'corporate',
     label: 'Corporate',
     icon: '▣',
     desc: 'Trang trọng, gọn, phù hợp báo cáo công việc và doanh nghiệp.',
+    accent: '#0284c7',
+    glow: 'rgba(2, 132, 199, 0.35)'
   },
   {
     value: 'creative',
     label: 'Creative',
     icon: '✺',
     desc: 'Nhiều hình ảnh, màu sắc, phù hợp ý tưởng và chiến dịch.',
+    accent: '#eab308',
+    glow: 'rgba(234, 179, 8, 0.35)'
   },
   {
     value: 'technical',
     label: 'Technical',
     icon: '⌬',
     desc: 'Tập trung hệ thống, quy trình, số liệu và kiến trúc.',
+    accent: '#06b6d4',
+    glow: 'rgba(6, 182, 212, 0.35)'
   },
   {
     value: 'elegant',
     label: 'Elegant',
     icon: '◆',
     desc: 'Sang trọng, tinh tế, phù hợp sự kiện cao cấp hoặc thương hiệu.',
+    accent: '#ec4899',
+    glow: 'rgba(236, 72, 153, 0.35)'
   },
   {
     value: CUSTOM_OPTION,
     label: 'Khác',
     icon: '✎',
     desc: 'Tự nhập phong cách thiết kế riêng của bạn.',
+    accent: '#22c55e',
+    glow: 'rgba(34, 197, 94, 0.35)'
   },
 ]
 
@@ -72,54 +90,72 @@ const LAYOUT_OPTIONS = [
     label: 'Key Message',
     icon: '▰',
     desc: 'Mỗi slide có một thông điệp chính thật rõ.',
+    accent: '#3b82f6',
+    glow: 'rgba(59, 130, 246, 0.3)',
   },
   {
     value: 'split',
     label: 'Split',
     icon: '◧',
     desc: 'Chia 2 cột: nội dung và hình ảnh / biểu đồ.',
+    accent: '#7c3aed',
+    glow: 'rgba(124, 58, 237, 0.3)',
   },
   {
     value: 'gridcards',
     label: 'Grid Cards',
     icon: '▦',
     desc: 'Nhiều ý nhỏ trình bày dạng card gọn gàng.',
+    accent: '#22d3ee',
+    glow: 'rgba(34, 211, 238, 0.3)',
   },
   {
     value: 'timeline',
     label: 'Timeline',
     icon: '━━',
     desc: 'Phù hợp tiến trình, lịch sử, roadmap, quy trình.',
+    accent: '#f59e0b',
+    glow: 'rgba(245, 158, 11, 0.3)',
   },
   {
     value: 'bigstat_impact',
     label: 'Big Stat',
     icon: '99',
     desc: 'Nhấn mạnh số liệu lớn, KPI hoặc insight quan trọng.',
+    accent: '#f43f5e',
+    glow: 'rgba(244, 63, 94, 0.3)',
   },
   {
     value: 'full_image_text_overlay',
     label: 'Image Overlay',
     icon: '◩',
     desc: 'Ảnh lớn làm nền, chữ phủ lên tạo cảm giác cinematic.',
+    accent: '#6366f1',
+    glow: 'rgba(99, 102, 241, 0.3)',
   },
   {
     value: 'comparison',
     label: 'Comparison',
     icon: '⇄',
     desc: 'So sánh 2 lựa chọn, phương án hoặc trước/sau.',
+    accent: '#10b981',
+    glow: 'rgba(16, 185, 129, 0.3)',
   },
   {
     value: 'process_flow',
     label: 'Process Flow',
     icon: '➜',
     desc: 'Các bước quy trình nối tiếp theo thứ tự hoặc mũi tên.',
+    accent: '#f97316',
+    glow: 'rgba(249, 115, 22, 0.3)',
   },
   {
     value: CUSTOM_OPTION,
     label: 'Khác',
     icon: '✎',
     desc: 'Tự nhập bố cục slide riêng của bạn.',
+    accent: '#22c55e',
+    glow: 'rgba(34, 197, 94, 0.3)',
   },
 ]
 
@@ -159,6 +195,119 @@ const DESC_HINTS: Record<keyof DesignDescription, string> = {
   visual: 'Loại hình ảnh, icon, biểu đồ phù hợp',
 }
 
+function GenDeckVisual({ type }: { type: string }) {
+  switch (type) {
+    case 'key_message':
+      return (
+        <div className="gdeck gdeck--key-message">
+          <span className="gdeck-bar gdeck-bar--accent" />
+          <span className="gdeck-bar gdeck-bar--sub" />
+          <span className="gdeck-bar gdeck-bar--sub gdeck-bar--xs" />
+        </div>
+      )
+    case 'split':
+      return (
+        <div className="gdeck gdeck--split">
+          <div className="gdeck-col gdeck-col--text">
+            <span className="gdeck-line" />
+            <span className="gdeck-line" />
+            <span className="gdeck-line gdeck-line--short" />
+          </div>
+          <div className="gdeck-col gdeck-col--block" />
+        </div>
+      )
+    case 'gridcards':
+      return (
+        <div className="gdeck gdeck--gridcards">
+          {[0, 1, 2, 3].map(i => <span key={i} className="gdeck-cell" />)}
+        </div>
+      )
+    case 'timeline':
+      return (
+        <div className="gdeck gdeck--timeline">
+          <span className="gdeck-track" />
+          {[0, 1, 2, 3].map(i => <span key={i} className="gdeck-dot" />)}
+        </div>
+      )
+    case 'bigstat_impact':
+      return (
+        <div className="gdeck gdeck--bigstat">
+          <span className="gdeck-stat">36%</span>
+          <span className="gdeck-bar gdeck-bar--sub" />
+        </div>
+      )
+    case 'full_image_text_overlay':
+      return (
+        <div className="gdeck gdeck--overlay">
+          <div className="gdeck-overlay-bg" />
+          <div className="gdeck-overlay-content">
+            <span className="gdeck-line gdeck-line--light" />
+            <span className="gdeck-line gdeck-line--light gdeck-line--short" />
+          </div>
+        </div>
+      )
+    case 'comparison':
+      return (
+        <div className="gdeck gdeck--comparison">
+          <div className="gdeck-half gdeck-half--a">
+            <span className="gdeck-line" />
+            <span className="gdeck-line gdeck-line--short" />
+          </div>
+          <span className="gdeck-divider" />
+          <div className="gdeck-half gdeck-half--b">
+            <span className="gdeck-line" />
+            <span className="gdeck-line gdeck-line--short" />
+          </div>
+        </div>
+      )
+    case 'process_flow':
+      return (
+        <div className="gdeck gdeck--process">
+          <span className="gdeck-step" />
+          <span className="gdeck-arrow">→</span>
+          <span className="gdeck-step" />
+          <span className="gdeck-arrow">→</span>
+          <span className="gdeck-step" />
+        </div>
+      )
+    default:
+      return (
+        <div className="gdeck gdeck--custom">
+          <span className="gdeck-custom-glyph">✎</span>
+        </div>
+      )
+  }
+}
+
+const MemoizedOptionCard = memo(function OptionCard({
+  option,
+  isActive,
+  disabled,
+  cardClass,
+  onSelect,
+}: {
+  option: { value: string; label: string; icon: string; desc: string; accent: string; glow: string }
+  isActive: boolean
+  disabled: boolean
+  cardClass: string
+  onSelect: (value: string, isCustom: boolean) => void
+}) {
+  const isCustomCard = option.value === CUSTOM_OPTION
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onSelect(option.value, isCustomCard)}
+      className={['gen-option-card', cardClass, isActive ? 'active' : ''].filter(Boolean).join(' ')}
+      style={{ '--card-accent': option.accent, '--card-glow': option.glow } as React.CSSProperties}
+    >
+      <span className="gen-option-icon">{option.icon}</span>
+      <strong>{option.label}</strong>
+      <small>{option.desc}</small>
+    </button>
+  )
+})
+
 export function GeneratePage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
@@ -195,6 +344,7 @@ export function GeneratePage() {
   const [submitError, setSubmitError] = useState('')
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null)
   const [isDraftSaving, setIsDraftSaving] = useState(false)
+  const [isAutoSaving, setIsAutoSaving] = useState(false)
   const [draftMessage, setDraftMessage] = useState('')
 
   // UI state
@@ -203,6 +353,8 @@ export function GeneratePage() {
 
   const descRef = useRef<HTMLDivElement>(null)
   const resultRef = useRef<HTMLDivElement>(null)
+  const contentTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const latestHandleSubmit = useRef<(e: React.FormEvent) => Promise<void>>(async (_e) => {})
 
   useEffect(() => {
     if (!user) navigate('/login')
@@ -226,7 +378,7 @@ export function GeneratePage() {
     setCurrentDraftId(draft.draftId || null)
     setIsCustomStyle(!STYLE_OPTIONS.some(o => o.value !== CUSTOM_OPTION && o.value === draft.style))
     setIsCustomLayout(!LAYOUT_OPTIONS.some(o => o.value !== CUSTOM_OPTION && o.value === draft.primary_layout))
-    setDraftMessage('Da tai ban nhap')
+    setDraftMessage('Đã tải bản nháp')
     window.history.replaceState({}, '', '/generate')
   }, [location.state])
 
@@ -271,6 +423,48 @@ export function GeneratePage() {
     }
   }, [jobStatus?.status])
 
+  // Tự động lưu draft sau 3s khi người dùng ngừng nhập purpose/audience
+  useEffect(() => {
+    const purpose = formData.purpose.trim()
+    const audience = formData.audience.trim()
+    if (purpose.length < 3 || audience.length < 3) return
+
+    const payload: SaveDraftPayload = { ...formData, description: description || null }
+    const snapDraftId = currentDraftId
+
+    const timer = setTimeout(async () => {
+      setIsAutoSaving(true)
+      try {
+        if (snapDraftId) {
+          await draftAPI.updateDraft(snapDraftId, payload)
+        } else {
+          const res = await draftAPI.saveDraft(payload)
+          setCurrentDraftId(res.data.id)
+        }
+      } catch {
+        // silent — không hiện lỗi auto-save
+      } finally {
+        setIsAutoSaving(false)
+      }
+    }, 3000)
+
+    return () => clearTimeout(timer)
+  }, [formData.purpose, formData.audience]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ctrl/Cmd+Enter khi focus vào content textarea → submit form
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        if (document.activeElement === contentTextareaRef.current) {
+          e.preventDefault()
+          void latestHandleSubmit.current({ preventDefault: () => {} } as unknown as React.FormEvent)
+        }
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
   const clampSlideCount = (value: number) => {
     if (Number.isNaN(value)) return SLIDE_MIN
     return Math.min(SLIDE_MAX, Math.max(SLIDE_MIN, value))
@@ -280,39 +474,45 @@ export function GeneratePage() {
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target
-  
+
     if (name === 'slide_count') {
       updateFormField('slide_count', clampSlideCount(parseInt(value, 10)))
       return
     }
-  
+
     updateFormField(name as keyof typeof formData, value)
   }
 
-  const updateFormField = (name: keyof typeof formData, value: string | number) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }))
-
+  const updateFormField = useCallback((name: keyof typeof formData, value: string | number) => {
+    setFormData(prev => ({ ...prev, [name]: value }))
     if (['purpose', 'audience', 'style', 'primary_layout', 'primary_color', 'language'].includes(name)) {
       setDescription(null)
       setDescError('')
     }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleStyleSelect = useCallback((value: string, isCustom: boolean) => {
+    setIsCustomStyle(isCustom)
+    updateFormField('style', isCustom ? '' : value)
+  }, [updateFormField])
+
+  const handleLayoutSelect = useCallback((value: string, isCustom: boolean) => {
+    setIsCustomLayout(isCustom)
+    updateFormField('primary_layout', isCustom ? '' : value)
+  }, [updateFormField])
+
+  const resizeTextarea = (textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return
+
+    textarea.style.height = 'auto'
+    textarea.style.height = `${textarea.scrollHeight}px`
   }
 
-const resizeTextarea = (textarea: HTMLTextAreaElement | null) => {
-  if (!textarea) return
-
-  textarea.style.height = 'auto'
-  textarea.style.height = `${textarea.scrollHeight}px`
-}
-
-const handleDescriptionChange =
-  (field: keyof DesignDescription) => (e: ChangeEvent<HTMLTextAreaElement>) => {
-    resizeTextarea(e.currentTarget)
-    setDescription(prev => (prev ? { ...prev, [field]: e.target.value } : null))
-  }
+  const handleDescriptionChange =
+    (field: keyof DesignDescription) => (e: ChangeEvent<HTMLTextAreaElement>) => {
+      resizeTextarea(e.currentTarget)
+      setDescription(prev => (prev ? { ...prev, [field]: e.target.value } : null))
+    }
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -412,6 +612,8 @@ const handleDescriptionChange =
     }
   }
 
+  latestHandleSubmit.current = handleSubmit
+
   const handleCopy = async () => {
     const text = jobStatus?.result?.full_master_prompt
     if (!text) return
@@ -465,44 +667,44 @@ const handleDescriptionChange =
           </button>
 
           <div className="gen-header-actions">
-          <ThemeToggle />
+            <ThemeToggle />
 
-          <div className="gen-user" onClick={() => setShowUserMenu(v => !v)}>
-            <div className="gen-avatar">{user?.email?.[0]?.toUpperCase() || 'U'}</div>
-            <span className="gen-user-email">{user?.email}</span>
+            <div className="gen-user" onClick={() => setShowUserMenu(v => !v)}>
+              <div className="gen-avatar">{user?.email?.[0]?.toUpperCase() || 'U'}</div>
+              <span className="gen-user-email">{user?.email}</span>
 
-            <svg
-              className={`gen-chevron ${showUserMenu ? 'open' : ''}`}
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-            >
-              <path
-                d="M2 4l4 4 4-4"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+              <svg
+                className={`gen-chevron ${showUserMenu ? 'open' : ''}`}
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+              >
+                <path
+                  d="M2 4l4 4 4-4"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
 
-            {showUserMenu && (
-              <div className="gen-user-menu" onClick={e => e.stopPropagation()}>
-                <button type="button" onClick={() => navigate('/')}>
-                  Trang chủ
-                </button>
+              {showUserMenu && (
+                <div className="gen-user-menu" onClick={e => e.stopPropagation()}>
+                  <button type="button" onClick={() => navigate('/')}>
+                    Trang chủ
+                  </button>
 
-                <button type="button" onClick={() => navigate('/history')}>
-                  Lịch sử Prompt
-                </button>
+                  <button type="button" onClick={() => navigate('/history')}>
+                    Lịch sử Prompt
+                  </button>
 
-                <button type="button" className="danger" onClick={handleLogout}>
-                  Đăng xuất
-                </button>
-              </div>
-            )}
-          </div>
+                  <button type="button" className="danger" onClick={handleLogout}>
+                    Đăng xuất
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -512,37 +714,37 @@ const handleDescriptionChange =
         <section className="gen-builder-hero">
           <div className="gen-kicker">
             <span className="gen-kicker-dot" />
-            AI Presentation Prompt Console
+            Hệ thống Cấu trúc Prompt Slide chuyên nghiệp
           </div>
 
           <h1>
-            Build your{' '}
-            <span className="gen-gradient-pink">Master Prompt</span>
+            Khơi nguồn{' '}
+            <span className="gen-gradient-pink">Ý tưởng Slide</span>
             <br />
-            for stunning slides.
+            Xây dựng cấu trúc thần tốc
           </h1>
 
           <p>
-            Điền brief, chọn vibe thiết kế, để AI phân tích hướng trình bày rồi sinh
-            một Master Prompt hoàn chỉnh cho PowerPoint, Marp hoặc slide deck.
+            Điền brief, chọn phong cách thiết kế, để AI phân tích định hướng trình bày
+            rồi sinh Master Prompt hoàn chỉnh cho PowerPoint, Marp hoặc bất kỳ slide deck nào.
           </p>
 
           <div className="gen-stepper">
             <div className={`gen-step ${formData.purpose && formData.audience ? 'done' : 'active'}`}>
               <span>1</span>
-              <strong>Thông tin (Brief)</strong>
+              <strong>Thông tin Brief</strong>
             </div>
             <div className={`gen-step ${description ? 'done' : formData.purpose && formData.audience ? 'active' : ''}`}>
               <span>2</span>
-              <strong>Thiết kế AI (AI Design)</strong>
+              <strong>Định hướng Thiết kế</strong>
             </div>
             <div className={`gen-step ${description ? 'active' : ''}`}>
               <span>3</span>
-              <strong>Nội dung (Content)</strong>
+              <strong>Nội dung Nguồn</strong>
             </div>
             <div className={`gen-step ${status === 'COMPLETED' ? 'done active' : ''}`}>
               <span>4</span>
-              <strong>Kết quả (Result)</strong>
+              <strong>Cấu trúc Prompt</strong>
             </div>
           </div>
         </section>
@@ -555,7 +757,7 @@ const handleDescriptionChange =
               <span />
               <span />
             </div>
-            <span className="gen-console-title">builder.config.tsx</span>
+            <span className="gen-console-title">Thiết kế prompt</span>
 
             <div className="gen-form-toolbar">
               {draftMessage && <span className="gen-draft-message">{draftMessage}</span>}
@@ -563,9 +765,9 @@ const handleDescriptionChange =
                 type="button"
                 className="gen-draft-btn"
                 onClick={handleSaveDraft}
-                disabled={isDraftSaving || isFormLocked}
+                disabled={isDraftSaving || isAutoSaving || isFormLocked}
               >
-                {isDraftSaving ? 'Đang lưu...' : currentDraftId ? 'Cập nhật Draft' : 'Lưu Draft'}
+                {isAutoSaving ? 'Đang tự động lưu...' : isDraftSaving ? 'Đang lưu...' : currentDraftId ? 'Cập nhật Draft' : 'Lưu Draft'}
               </button>
             </div>
           </div>
@@ -624,26 +826,16 @@ const handleDescriptionChange =
               </div>
 
               <div className="gen-option-grid gen-option-grid-style">
-                {STYLE_OPTIONS.map(option => {
-                  const isCustomCard = option.value === CUSTOM_OPTION
-                  const isActive = isCustomCard ? isCustomStyle : !isCustomStyle && formData.style === option.value
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      disabled={isFormLocked}
-                      onClick={() => {
-                        setIsCustomStyle(isCustomCard)
-                        updateFormField('style', isCustomCard ? '' : option.value)
-                      }}
-                      className={`gen-option-card ${isActive ? 'active' : ''}`}
-                    >
-                      <span className="gen-option-icon">{option.icon}</span>
-                      <strong>{option.label}</strong>
-                      <small>{option.desc}</small>
-                    </button>
-                  )
-                })}
+                {STYLE_OPTIONS.map(option => (
+                  <MemoizedOptionCard
+                    key={option.value}
+                    option={option}
+                    isActive={isCustomStyle ? option.value === CUSTOM_OPTION : formData.style === option.value}
+                    disabled={isFormLocked}
+                    cardClass=""
+                    onSelect={handleStyleSelect}
+                  />
+                ))}
               </div>
 
               {isCustomStyle && (
@@ -667,26 +859,16 @@ const handleDescriptionChange =
               </div>
 
               <div className="gen-option-grid gen-option-grid-layout">
-                {LAYOUT_OPTIONS.map(option => {
-                  const isCustomCard = option.value === CUSTOM_OPTION
-                  const isActive = isCustomCard ? isCustomLayout : !isCustomLayout && formData.primary_layout === option.value
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      disabled={isFormLocked}
-                      onClick={() => {
-                        setIsCustomLayout(isCustomCard)
-                        updateFormField('primary_layout', isCustomCard ? '' : option.value)
-                      }}
-                      className={`gen-option-card gen-layout-card ${isActive ? 'active' : ''}`}
-                    >
-                      <span className="gen-option-icon">{option.icon}</span>
-                      <strong>{option.label}</strong>
-                      <small>{option.desc}</small>
-                    </button>
-                  )
-                })}
+                {LAYOUT_OPTIONS.map(option => (
+                  <MemoizedOptionCard
+                    key={option.value}
+                    option={option}
+                    isActive={isCustomLayout ? option.value === CUSTOM_OPTION : formData.primary_layout === option.value}
+                    disabled={isFormLocked}
+                    cardClass="gen-layout-card"
+                    onSelect={handleLayoutSelect}
+                  />
+                ))}
               </div>
 
               {isCustomLayout && (
@@ -701,6 +883,29 @@ const handleDescriptionChange =
                   />
                 </div>
               )}
+            </div>
+
+            {/* Live layout preview panel */}
+            <div className="gen-layout-preview">
+              <div className="gen-preview-topbar">
+                <div className="gen-window-dots">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+                <span className="gen-preview-name">layout.preview</span>
+                <span className="gen-preview-badge">
+                  {isCustomLayout
+                    ? (formData.primary_layout || 'Tùy chỉnh')
+                    : (LAYOUT_OPTIONS.find(o => o.value === formData.primary_layout)?.label ?? formData.primary_layout)}
+                </span>
+              </div>
+              <div className="gen-preview-body">
+                <GenDeckVisual
+                  key={isCustomLayout ? '__custom__' : formData.primary_layout}
+                  type={isCustomLayout ? '__custom__' : formData.primary_layout}
+                />
+              </div>
             </div>
 
             <div className="gen-control-grid">
@@ -883,14 +1088,28 @@ const handleDescriptionChange =
 
               <div className="gen-field">
                 <label>Nội dung text</label>
-                <textarea
-                  name="content"
-                  value={formData.content}
-                  onChange={handleInputChange}
-                  placeholder="Dán nội dung bạn muốn chuyển thành slide..."
-                  rows={8}
-                  disabled={isRunning}
-                />
+                <div className="gen-content-field-wrap">
+                  <textarea
+                    ref={contentTextareaRef}
+                    name="content"
+                    value={formData.content}
+                    onChange={handleInputChange}
+                    placeholder="Dán nội dung bạn muốn chuyển thành slide..."
+                    rows={8}
+                    disabled={isRunning}
+                  />
+                  {formData.content.length > 0 && (
+                    <button
+                      type="button"
+                      className="gen-content-clear"
+                      onClick={() => updateFormField('content', '')}
+                      disabled={isRunning}
+                      aria-label="Xóa nội dung"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="gen-field">
@@ -906,7 +1125,7 @@ const handleDescriptionChange =
                         <span className="gen-file-name">{file.name}</span>
                         <button type="button" className="gen-file-remove" onClick={() => handleRemoveFile(idx)} disabled={isRunning}>
                           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                            <path d="M10.5 3.5L3.5 10.5M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                            <path d="M10.5 3.5L3.5 10.5M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                           </svg>
                         </button>
                       </li>
@@ -936,7 +1155,19 @@ const handleDescriptionChange =
           <div ref={resultRef} className="gen-result-area">
             {isRunning && (
               <div className="gen-status-card">
-                <div className="gen-spinner" />
+                <div className="gen-shimmer-skeleton">
+                  <div className="gen-shimmer-row">
+                    <div className="gen-shimmer-dot" />
+                    <div className="gen-shimmer-lines">
+                      <div className="gen-shimmer-bar gen-shimmer-bar--title" />
+                      <div className="gen-shimmer-bar gen-shimmer-bar--sub" />
+                    </div>
+                  </div>
+                  <div className="gen-shimmer-body">
+                    <div className="gen-shimmer-bar gen-shimmer-bar--wide" />
+                    <div className="gen-shimmer-bar gen-shimmer-bar--mid" />
+                  </div>
+                </div>
                 <h3>{STATUS_LABELS[status || 'PENDING']}</h3>
                 <p className="gen-status-hint">AI đang dựng cấu trúc slide và assemble Master Prompt.</p>
               </div>
@@ -966,6 +1197,12 @@ const handleDescriptionChange =
                 </div>
 
                 <pre className="gen-prompt-output">{jobStatus.result.full_master_prompt}</pre>
+
+                {copied && (
+                  <p className="gen-copy-hint">
+                    Bấm Ctrl+V (hoặc Cmd+V) vào ChatGPT, Claude hoặc Gemini để dựng slide ngay!
+                  </p>
+                )}
 
                 <div className="gen-result-footer">
                   <p className="gen-result-hint">

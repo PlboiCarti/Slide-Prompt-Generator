@@ -26,7 +26,7 @@ html, body, #root {
   --text-muted: #71717a;
 
   /* effects */
-  --grid-line: rgba(255, 255, 255, 0.035);
+  --grid-line: rgba(255, 255, 255, 0.055);
   --glow-pink: rgba(255, 28, 247, 0.26);
   --glow-cyan: rgba(0, 240, 255, 0.22);
   --shadow-elevated: 0 30px 90px rgba(0, 0, 0, 0.52);
@@ -60,7 +60,7 @@ html[data-theme="light"] {
   --text-secondary: #52525b;
   --text-muted: #8b8b96;
 
-  --grid-line: rgba(24, 24, 27, 0.05);
+  --grid-line: rgba(24, 24, 27, 0.08);
   --glow-pink: rgba(255, 28, 247, 0.14);
   --glow-cyan: rgba(0, 200, 255, 0.14);
   --shadow-elevated: 0 24px 60px rgba(24, 24, 27, 0.1);
