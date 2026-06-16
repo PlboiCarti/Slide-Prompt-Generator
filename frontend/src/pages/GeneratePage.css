@@ -1604,8 +1604,12 @@
   z-index: 1;
 }
 
-/* Layout card accent is now injected inline by TSX; this selector is kept for specificity */
-.gen-layout-card {}
+/* Layout card accent is injected inline by TSX; layer promotion explicit here too */
+.gen-layout-card {
+  will-change: transform;
+  transform: translateZ(0);
+  contain: layout style paint;
+}
 
 .gen-control-grid {
   margin-top: 26px;

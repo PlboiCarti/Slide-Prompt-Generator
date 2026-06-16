@@ -299,7 +299,7 @@
     font-weight: 800;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--accent-cyan);
+    color: color-mix(in srgb, var(--accent-cyan) 85%, var(--text-primary));
   }
   
   .landing-section-heading h2 {
@@ -799,3 +799,5 @@
       padding: 24px 16px;
     }
   }
+
+[data-theme="light"] .landing-kicker { color: color-mix(in srgb, var(--accent-cyan) 50%, var(--text-heading)); }
