@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { binAPI, BinItem, draftAPI, historyAPI, HistoryItem, JobResult } from '../services/api'
+import { ThemeToggle } from '../components/ThemeToggle'
 import './HistoryPage.css'
 
 type HistoryTab = 'ALL' | 'COMPLETED' | 'DRAFT' | 'FAILED' | 'BIN'
@@ -195,6 +196,8 @@ export function HistoryPage() {
           </p>
         </div>
         <div className="history-actions">
+          <ThemeToggle />
+
           <button
             type="button"
             className="history-secondary"

@@ -2,7 +2,11 @@ import { useState, useEffect, ChangeEvent, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { promptAPI, DesignDescription, draftAPI, SaveDraftPayload, JobStatusResponse } from '../services/api'
+import { ThemeToggle } from '../components/ThemeToggle'
 import './GeneratePage.css'
+
+// Giá trị đặc biệt cho lựa chọn "Khác" (tự nhập)
+const CUSTOM_OPTION = '__custom__'
 
 // Phải khớp với backend
 const STYLE_OPTIONS = [
@@ -48,6 +52,18 @@ const STYLE_OPTIONS = [
     icon: '⌬',
     desc: 'Tập trung hệ thống, quy trình, số liệu và kiến trúc.',
   },
+  {
+    value: 'elegant',
+    label: 'Elegant',
+    icon: '◆',
+    desc: 'Sang trọng, tinh tế, phù hợp sự kiện cao cấp hoặc thương hiệu.',
+  },
+  {
+    value: CUSTOM_OPTION,
+    label: 'Khác',
+    icon: '✎',
+    desc: 'Tự nhập phong cách thiết kế riêng của bạn.',
+  },
 ]
 
 const LAYOUT_OPTIONS = [
@@ -87,18 +103,36 @@ const LAYOUT_OPTIONS = [
     icon: '◩',
     desc: 'Ảnh lớn làm nền, chữ phủ lên tạo cảm giác cinematic.',
   },
+  {
+    value: 'comparison',
+    label: 'Comparison',
+    icon: '⇄',
+    desc: 'So sánh 2 lựa chọn, phương án hoặc trước/sau.',
+  },
+  {
+    value: 'process_flow',
+    label: 'Process Flow',
+    icon: '➜',
+    desc: 'Các bước quy trình nối tiếp theo thứ tự hoặc mũi tên.',
+  },
+  {
+    value: CUSTOM_OPTION,
+    label: 'Khác',
+    icon: '✎',
+    desc: 'Tự nhập bố cục slide riêng của bạn.',
+  },
 ]
 
 const SLIDE_MIN = 6
 const SLIDE_MAX = 30
-const SLIDE_PRESETS = [6, 7, 10, 15]
+const SLIDE_PRESETS = [8, 10, 15, 20]
 
 const COLOR_PRESETS = [
-  { name: 'Cyber Pink', value: '#d946ef' },
-  { name: 'Neon Blue', value: '#22d3ee' },
-  { name: 'Violet', value: '#7c3aed' },
-  { name: 'Emerald', value: '#22c55e' },
-  { name: 'Amber', value: '#facc15' },
+  { name: 'Hồng Tím', value: '#d946ef' },
+  { name: 'Xanh Dương', value: '#2563eb' },
+  { name: 'Xanh Ngọc', value: '#22d3ee' },
+  { name: 'Tím', value: '#7c3aed' },
+  { name: 'Xanh Lá', value: '#22c55e' },
 ]
 
 const STATUS_LABELS: Record<string, string> = {
@@ -136,13 +170,17 @@ export function GeneratePage() {
     audience: '',
     style: 'minimalist',
     primary_color: '#667eea',
-    slide_count: 6,
+    slide_count: 8,
     primary_layout: 'key_message',
     content: '',
     language: 'vi',
   })
 
   const [files, setFiles] = useState<File[]>([])
+
+  // "Khác" (tự nhập) cho phong cách / bố cục
+  const [isCustomStyle, setIsCustomStyle] = useState(false)
+  const [isCustomLayout, setIsCustomLayout] = useState(false)
 
   // Phase 1 state
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -186,6 +224,8 @@ export function GeneratePage() {
     })
     setDescription((draft.description as DesignDescription | null) || null)
     setCurrentDraftId(draft.draftId || null)
+    setIsCustomStyle(!STYLE_OPTIONS.some(o => o.value !== CUSTOM_OPTION && o.value === draft.style))
+    setIsCustomLayout(!LAYOUT_OPTIONS.some(o => o.value !== CUSTOM_OPTION && o.value === draft.primary_layout))
     setDraftMessage('Da tai ban nhap')
     window.history.replaceState({}, '', '/generate')
   }, [location.state])
@@ -424,6 +464,9 @@ const handleDescriptionChange =
             <span className="gen-brand-name">Slide Prompt Builder</span>
           </button>
 
+          <div className="gen-header-actions">
+          <ThemeToggle />
+
           <div className="gen-user" onClick={() => setShowUserMenu(v => !v)}>
             <div className="gen-avatar">{user?.email?.[0]?.toUpperCase() || 'U'}</div>
             <span className="gen-user-email">{user?.email}</span>
@@ -460,6 +503,7 @@ const handleDescriptionChange =
               </div>
             )}
           </div>
+          </div>
         </div>
       </header>
 
@@ -486,19 +530,19 @@ const handleDescriptionChange =
           <div className="gen-stepper">
             <div className={`gen-step ${formData.purpose && formData.audience ? 'done' : 'active'}`}>
               <span>1</span>
-              <strong>Brief</strong>
+              <strong>Thông tin (Brief)</strong>
             </div>
             <div className={`gen-step ${description ? 'done' : formData.purpose && formData.audience ? 'active' : ''}`}>
               <span>2</span>
-              <strong>AI Design</strong>
+              <strong>Thiết kế AI (AI Design)</strong>
             </div>
             <div className={`gen-step ${description ? 'active' : ''}`}>
               <span>3</span>
-              <strong>Content</strong>
+              <strong>Nội dung (Content)</strong>
             </div>
             <div className={`gen-step ${status === 'COMPLETED' ? 'done active' : ''}`}>
               <span>4</span>
-              <strong>Result</strong>
+              <strong>Kết quả (Result)</strong>
             </div>
           </div>
         </section>
@@ -580,20 +624,40 @@ const handleDescriptionChange =
               </div>
 
               <div className="gen-option-grid gen-option-grid-style">
-                {STYLE_OPTIONS.map(option => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    disabled={isFormLocked}
-                    onClick={() => updateFormField('style', option.value)}
-                    className={`gen-option-card ${formData.style === option.value ? 'active' : ''}`}
-                  >
-                    <span className="gen-option-icon">{option.icon}</span>
-                    <strong>{option.label}</strong>
-                    <small>{option.desc}</small>
-                  </button>
-                ))}
+                {STYLE_OPTIONS.map(option => {
+                  const isCustomCard = option.value === CUSTOM_OPTION
+                  const isActive = isCustomCard ? isCustomStyle : !isCustomStyle && formData.style === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      disabled={isFormLocked}
+                      onClick={() => {
+                        setIsCustomStyle(isCustomCard)
+                        updateFormField('style', isCustomCard ? '' : option.value)
+                      }}
+                      className={`gen-option-card ${isActive ? 'active' : ''}`}
+                    >
+                      <span className="gen-option-icon">{option.icon}</span>
+                      <strong>{option.label}</strong>
+                      <small>{option.desc}</small>
+                    </button>
+                  )
+                })}
               </div>
+
+              {isCustomStyle && (
+                <div className="gen-field gen-custom-field">
+                  <label>Phong cách của bạn</label>
+                  <input
+                    type="text"
+                    value={formData.style}
+                    onChange={(e) => updateFormField('style', e.target.value)}
+                    placeholder="Vd: Vintage, Y2K, Bauhaus..."
+                    disabled={isFormLocked}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="gen-subsection">
@@ -603,20 +667,40 @@ const handleDescriptionChange =
               </div>
 
               <div className="gen-option-grid gen-option-grid-layout">
-                {LAYOUT_OPTIONS.map(option => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    disabled={isFormLocked}
-                    onClick={() => updateFormField('primary_layout', option.value)}
-                    className={`gen-option-card gen-layout-card ${formData.primary_layout === option.value ? 'active' : ''}`}
-                  >
-                    <span className="gen-option-icon">{option.icon}</span>
-                    <strong>{option.label}</strong>
-                    <small>{option.desc}</small>
-                  </button>
-                ))}
+                {LAYOUT_OPTIONS.map(option => {
+                  const isCustomCard = option.value === CUSTOM_OPTION
+                  const isActive = isCustomCard ? isCustomLayout : !isCustomLayout && formData.primary_layout === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      disabled={isFormLocked}
+                      onClick={() => {
+                        setIsCustomLayout(isCustomCard)
+                        updateFormField('primary_layout', isCustomCard ? '' : option.value)
+                      }}
+                      className={`gen-option-card gen-layout-card ${isActive ? 'active' : ''}`}
+                    >
+                      <span className="gen-option-icon">{option.icon}</span>
+                      <strong>{option.label}</strong>
+                      <small>{option.desc}</small>
+                    </button>
+                  )
+                })}
               </div>
+
+              {isCustomLayout && (
+                <div className="gen-field gen-custom-field">
+                  <label>Bố cục của bạn</label>
+                  <input
+                    type="text"
+                    value={formData.primary_layout}
+                    onChange={(e) => updateFormField('primary_layout', e.target.value)}
+                    placeholder="Vd: Q&A, Agenda, Team Profile..."
+                    disabled={isFormLocked}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="gen-control-grid">
@@ -707,7 +791,13 @@ const handleDescriptionChange =
               <button
                 type="button"
                 onClick={handleAnalyze}
-                disabled={isFormLocked || formData.purpose.trim().length < 3 || formData.audience.trim().length < 3}
+                disabled={
+                  isFormLocked ||
+                  formData.purpose.trim().length < 3 ||
+                  formData.audience.trim().length < 3 ||
+                  (isCustomStyle && !formData.style.trim()) ||
+                  (isCustomLayout && !formData.primary_layout.trim())
+                }
                 className="gen-analyze-btn"
               >
                 {isAnalyzing ? (
@@ -716,7 +806,7 @@ const handleDescriptionChange =
                     Đang phân tích thiết kế...
                   </>
                 ) : (
-                  <>✦ Analyze Design Direction</>
+                  <>✦ Phân tích Định hướng Thiết kế</>
                 )}
               </button>
 
@@ -837,7 +927,7 @@ const handleDescriptionChange =
             )}
 
             <button type="submit" disabled={isRunning} className="gen-submit">
-              {isRunning ? 'Đang xử lý...' : '🚀 Generate Master Prompt'}
+              {isRunning ? 'Đang xử lý...' : '🚀 Tạo Master Prompt'}
             </button>
           </form>
         )}

@@ -2,6 +2,7 @@ import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { authAPI } from '../services/api'
+import { ThemeToggle } from '../components/ThemeToggle'
 import './AuthPage.css'
 
 export function LoginPage() {
@@ -55,6 +56,7 @@ export function LoginPage() {
 
   return (
     <div className="auth-container">
+      <ThemeToggle />
       <div className="auth-glow auth-glow-pink" />
       <div className="auth-glow auth-glow-blue" />
 
@@ -62,36 +64,19 @@ export function LoginPage() {
         <section className="auth-side-panel">
           <button className="auth-brand" onClick={() => navigate('/')}>
             <span className="auth-brand-logo">PB</span>
-            <span>Slide Prompt Builder</span>
           </button>
 
           <div className="auth-side-content">
             <span className="auth-kicker">AI Prompt Workflow</span>
             <h2>
-              Welcome back to your
-              <span> cyber slide console.</span>
+              Chào mừng trở lại
+              <span> với Prompt Builder.</span>
             </h2>
-            <p>
-              Đăng nhập để tiếp tục tạo Master Prompt, phân tích hướng thiết kế
-              và sinh cấu trúc slide bằng AI.
-            </p>
-          </div>
-
-          <div className="auth-side-stats">
-            <div>
-              <strong>2 Phase</strong>
-              <span>Design + Prompt</span>
-            </div>
-            <div>
-              <strong>AI Ready</strong>
-              <span>Gemini pipeline</span>
-            </div>
           </div>
         </section>
 
         <section className="auth-card">
           <div className="auth-card-header">
-            <span className="auth-card-badge">Secure Login</span>
             <h1>Đăng nhập</h1>
             <p>Truy cập Prompt Builder console của bạn.</p>
           </div>

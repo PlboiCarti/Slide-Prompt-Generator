@@ -8,16 +8,14 @@
     position: relative;
     overflow-x: hidden;
     padding: 46px 24px 86px;
-    color: #ffffff;
+    color: var(--text-primary);
     background:
       radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.16), transparent 34%),
       radial-gradient(circle at 10% 24%, rgba(34, 211, 238, 0.11), transparent 30%),
       radial-gradient(circle at 90% 55%, rgba(217, 70, 239, 0.11), transparent 30%),
-      #000000;
+      var(--bg-page);
     font-family:
-      Inter,
       "Plus Jakarta Sans",
-      "Geist Sans",
       system-ui,
       -apple-system,
       BlinkMacSystemFont,
@@ -31,8 +29,8 @@
     inset: 0;
     pointer-events: none;
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
     background-size: 64px 64px;
     mask-image: linear-gradient(to bottom, black, transparent 78%);
   }
@@ -45,7 +43,7 @@
     right: -170px;
     top: 260px;
     border-radius: 999px;
-    background: rgba(34, 211, 238, 0.16);
+    background: var(--glow-cyan);
     filter: blur(120px);
     pointer-events: none;
   }
@@ -65,7 +63,7 @@
   
   .history-header h1 {
     margin: 0;
-    color: white;
+    color: var(--text-heading);
     font-size: clamp(38px, 5vw, 58px);
     line-height: 0.98;
     font-weight: 900;
@@ -79,7 +77,7 @@
     height: 4px;
     margin-top: 18px;
     border-radius: 999px;
-    background: linear-gradient(90deg, #d946ef, #7c3aed, #22d3ee);
+    background: linear-gradient(90deg, var(--accent-fuchsia), var(--accent-violet), var(--accent-cyan-soft));
     box-shadow:
       0 0 26px rgba(217, 70, 239, 0.35),
       0 0 30px rgba(34, 211, 238, 0.22);
@@ -88,7 +86,7 @@
   .history-header p {
     max-width: 660px;
     margin: 20px 0 0;
-    color: #a1a1aa;
+    color: var(--text-secondary);
     font-size: 15.5px;
     line-height: 1.75;
   }
@@ -113,9 +111,9 @@
   .history-tabs button,
   .history-modal button,
   .history-pagination button {
-    border: 1px solid #3f3f46;
-    background: rgba(9, 9, 11, 0.82);
-    color: white;
+    border: 1px solid var(--border-soft);
+    background: var(--bg-surface-translucent);
+    color: var(--text-primary);
     border-radius: 999px;
     padding: 10px 15px;
     font-size: 14px;
@@ -136,7 +134,7 @@
   .history-pagination button:hover {
     transform: translateY(-1px);
     border-color: rgba(34, 211, 238, 0.7);
-    background: rgba(9, 9, 11, 0.96);
+    background: var(--bg-surface);
     box-shadow: 0 0 26px rgba(34, 211, 238, 0.14);
   }
 
@@ -173,11 +171,11 @@
     max-width: 1120px;
     margin: 0 auto 22px;
     padding: 8px;
-    border: 1px solid #27272a;
+    border: 1px solid var(--border-color);
     border-radius: 999px;
     background:
       radial-gradient(circle at 0% 0%, rgba(217, 70, 239, 0.08), transparent 38%),
-      rgba(9, 9, 11, 0.74);
+      var(--bg-surface-translucent);
     width: fit-content;
     box-shadow:
       0 22px 70px rgba(0, 0, 0, 0.34),
@@ -187,16 +185,16 @@
   .history-tabs button {
     border-color: transparent;
     background: transparent;
-    color: #a1a1aa;
+    color: var(--text-secondary);
     padding: 10px 16px;
   }
   
   .history-tabs button:hover {
-    color: white;
+    color: var(--text-primary);
   }
-  
+
   .history-tabs button.active {
-    color: white;
+    color: var(--text-primary);
     border-color: rgba(34, 211, 238, 0.6);
     background:
       linear-gradient(135deg, rgba(217, 70, 239, 0.22), rgba(34, 211, 238, 0.12));
@@ -223,15 +221,15 @@
     justify-content: center;
     align-items: center;
     gap: 14px;
-    color: #a1a1aa;
+    color: var(--text-secondary);
     font-size: 14px;
   }
 
   .history-card {
     position: relative;
     overflow: hidden;
-    border: 1px solid #27272a;
-    border-left: 4px solid #52525b;
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--text-muted);
     border-radius: 24px;
     padding: 22px;
     display: flex;
@@ -241,7 +239,7 @@
     background:
       radial-gradient(circle at 0% 0%, rgba(168, 85, 247, 0.09), transparent 36%),
       radial-gradient(circle at 100% 0%, rgba(34, 211, 238, 0.07), transparent 34%),
-      rgba(9, 9, 11, 0.92);
+      var(--bg-surface);
     box-shadow:
       0 24px 70px rgba(0, 0, 0, 0.42),
       inset 0 1px 0 rgba(255, 255, 255, 0.055);
@@ -265,7 +263,7 @@
   
   .history-card:hover {
     transform: translateY(-3px);
-    border-color: #52525b;
+    border-color: var(--text-muted);
     box-shadow:
       0 28px 80px rgba(0, 0, 0, 0.52),
       0 0 34px rgba(168, 85, 247, 0.1);
@@ -282,7 +280,7 @@
   
   .history-card h2 {
     margin: 9px 0 10px;
-    color: white;
+    color: var(--text-heading);
     font-size: 18px;
     line-height: 1.35;
     font-weight: 850;
@@ -292,7 +290,7 @@
   .history-card p,
   .history-empty p {
     margin: 6px 0;
-    color: #a1a1aa;
+    color: var(--text-secondary);
     font-size: 14px;
     line-height: 1.6;
   }
@@ -303,7 +301,7 @@
     gap: 8px 24px;
     align-items: center;
     margin: 10px 0;
-    color: #a1a1aa;
+    color: var(--text-secondary);
     font-size: 14px;
   }
 
@@ -312,7 +310,7 @@
   }
 
   .history-card-meta strong {
-    color: #d4d4d8;
+    color: var(--text-secondary);
   }
 
   .history-status {
@@ -321,9 +319,9 @@
     width: fit-content;
     padding: 7px 11px;
     border-radius: 999px;
-    border: 1px solid #3f3f46;
+    border: 1px solid var(--border-soft);
     background: rgba(9, 9, 11, 0.72);
-    color: #d4d4d8;
+    color: var(--text-secondary);
     font-size: 11px;
     font-weight: 850;
     letter-spacing: 0.12em;
@@ -391,7 +389,7 @@
     border: none;
     border-radius: 999px;
     color: white;
-    background: linear-gradient(91deg, #ff1cf7 2.26%, #00f0ff 100%);
+    background: var(--gradient-brand);
     box-shadow:
       0 0 30px rgba(255, 28, 247, 0.25),
       0 14px 36px rgba(0, 240, 255, 0.2);
@@ -410,7 +408,7 @@
   }
 
   .history-bin-fab.active {
-    background: rgba(9, 9, 11, 0.92);
+    background: var(--bg-surface);
     border: 1px solid rgba(34, 211, 238, 0.6);
     box-shadow: 0 0 26px rgba(34, 211, 238, 0.22);
   }
@@ -423,12 +421,12 @@
     z-index: 1;
     max-width: 1120px;
     margin: 0 auto 18px;
-    border: 1px solid #27272a;
+    border: 1px solid var(--border-color);
     border-radius: 24px;
     padding: 30px;
     background:
       radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.08), transparent 38%),
-      rgba(9, 9, 11, 0.9);
+      var(--bg-surface);
     box-shadow:
       0 24px 70px rgba(0, 0, 0, 0.36),
       inset 0 1px 0 rgba(255, 255, 255, 0.055);
@@ -439,7 +437,7 @@
     border-color: rgba(251, 113, 133, 0.42);
     background:
       radial-gradient(circle at 0% 0%, rgba(251, 113, 133, 0.13), transparent 38%),
-      rgba(9, 9, 11, 0.92);
+      var(--bg-surface);
   }
   
   .history-empty {
@@ -468,12 +466,12 @@
     width: min(980px, 100%);
     max-height: 86vh;
     overflow: hidden;
-    border: 1px solid #27272a;
+    border: 1px solid var(--border-color);
     border-radius: 26px;
     background:
       radial-gradient(circle at 0% 0%, rgba(217, 70, 239, 0.11), transparent 38%),
       radial-gradient(circle at 100% 0%, rgba(34, 211, 238, 0.09), transparent 34%),
-      #09090b;
+      var(--bg-surface);
     box-shadow:
       0 35px 110px rgba(0, 0, 0, 0.68),
       0 0 40px rgba(168, 85, 247, 0.12),
@@ -482,17 +480,17 @@
   
   .history-modal header {
     padding: 18px 22px;
-    border-bottom: 1px solid #27272a;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 12px;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--bg-surface-soft);
   }
   
   .history-modal header h2 {
     margin: 0;
-    color: white;
+    color: var(--text-heading);
     font-size: 18px;
     line-height: 1.35;
     font-weight: 850;
@@ -504,8 +502,8 @@
     max-height: 70vh;
     overflow: auto;
     white-space: pre-wrap;
-    color: #d4d4d8;
-    background: rgba(0, 0, 0, 0.72);
+    color: var(--text-secondary);
+    background: var(--bg-surface-translucent);
     font-family:
       "SF Mono",
       "Cascadia Code",
@@ -524,13 +522,13 @@
   }
   
   .history-modal pre::-webkit-scrollbar-track {
-    background: #09090b;
+    background: var(--bg-surface);
   }
   
   .history-modal pre::-webkit-scrollbar-thumb {
-    background: #3f3f46;
+    background: var(--border-soft);
     border-radius: 999px;
-    border: 2px solid #09090b;
+    border: 2px solid var(--bg-surface);
   }
   
   /* Responsive */
@@ -627,7 +625,7 @@
 .history-actions .history-primary {
   border: none;
   color: white;
-  background: linear-gradient(91deg, #ff1cf7 2.26%, #00f0ff 100%);
+  background: var(--gradient-brand);
   box-shadow:
     0 0 30px rgba(255, 28, 247, 0.2),
     0 12px 32px rgba(0, 240, 255, 0.18);
@@ -642,9 +640,9 @@
 }
 
 .history-actions .history-secondary {
-  color: #d4d4d8;
+  color: var(--text-secondary);
 }
 
 .history-actions .history-secondary:hover {
-  color: white;
+  color: var(--text-primary);
 }
