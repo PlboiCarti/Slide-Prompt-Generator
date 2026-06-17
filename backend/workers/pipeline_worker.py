@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import shutil
-from concurrent.futures import ThreadPoolExecutor
+import time
 from pathlib import Path
 from datetime import datetime
 from threading import Thread
@@ -26,12 +26,13 @@ from schemas.prompt import DesignDescription
 from services.llm_service import (
     assemble_master_prompt,
     fill_slide_contents,
-    generate_color_palette,
-    generate_design_description,
+    generate_design_bundle,
     generate_slide_structure,
 )
 
 logger = logging.getLogger(__name__)
+
+_JOB_TIMEOUT = 600  # 10 phút — job tự fail nếu chạy quá lâu
 
 
 def run_pipeline_in_thread(job_id: str, payload: dict) -> Thread:
@@ -68,6 +69,11 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
 
     # Mỗi thread mở session riêng — không share session từ request
     db: Session = SessionLocal()
+    _start = time.monotonic()
+
+    def _check_timeout() -> None:
+        if time.monotonic() - _start > _JOB_TIMEOUT:
+            raise TimeoutError(f"Job vượt quá giới hạn {_JOB_TIMEOUT}s")
 
     try:
         _update_job(db, job_id, "PROCESSING")
@@ -92,20 +98,14 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
             logger.info(f"[{job_id[:8]}] Using description from Phase 1")
         else:
             logger.info(f"[{job_id[:8]}] No description provided — generating automatically")
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                desc_future = executor.submit(
-                    generate_design_description,
-                    purpose=purpose, audience=audience, style=style,
-                    layout=primary_layout, color=primary_color, language=language,
-                )
-                palette_future = executor.submit(
-                    generate_color_palette,
-                    primary_color=primary_color, style=style, language=language,
-                )
-                design_description = desc_future.result(timeout=90)
-                design_description.color_palette = palette_future.result(timeout=90)
+            _check_timeout()
+            design_description = generate_design_bundle(
+                purpose=purpose, audience=audience, style=style,
+                layout=primary_layout, color=primary_color, language=language,
+            )
 
         # ── B2: Sinh cấu trúc slide ───────────────────────────────────
+        _check_timeout()
         logger.info(f"[{job_id[:8]}] B2: generating slide structure...")
         slides = generate_slide_structure(
             purpose=purpose,
@@ -117,6 +117,7 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
         )
 
         # ── B3: Ghép content vào từng slide ──────────────────────────
+        _check_timeout()
         if final_content.strip():
             logger.info(f"[{job_id[:8]}] B3: filling slide contents...")
             slides = fill_slide_contents(
