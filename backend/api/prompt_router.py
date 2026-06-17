@@ -11,11 +11,13 @@ import json
 import logging
 import os
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from core.dependencies import get_current_user
@@ -26,9 +28,9 @@ _settings = _get_settings()
 from models.job import Job
 from models.user import User
 from schemas.jobs import GenerateResponse, JobStatusResponse
-from schemas.prompt import DescribeRequest, DesignDescription
+from schemas.prompt import ColorPalette, DescribeRequest, DesignDescription
 from services.content_extractor import MAX_FILE_SIZE
-from services.llm_service import generate_design_description
+from services.llm_service import generate_color_palette, generate_design_description
 from utils.rate_limiter import generate_tracker
 from workers.pipeline_worker import run_pipeline_in_thread
 
@@ -170,7 +172,8 @@ _DESC_FIELD_LABELS = {
     "font":             "desc_font (kiểu chữ / font chữ)",
     "key_message_rule": "desc_key_message_rule (quy tắc thông điệp chính mỗi slide)",
     "density":          "desc_density (mật độ thông tin trên slide)",
-    "visual":           "desc_visual (yếu tố hình ảnh / màu sắc minh hoạ)",
+    "visual":           "desc_visual (bố cục minh hoạ / visual hierarchy)",
+    "color_palette":    "desc_color_palette (bảng màu)",
 }
 
 # ══════════════════════════════════════════════════════════════════════
@@ -209,14 +212,19 @@ def generate_description(
         f"Phase1 generate-description | purpose='{data.purpose[:40]}' "
         f"| lang={data.language}"
     )
-    result = generate_design_description(
-        purpose=data.purpose,
-        audience=data.audience,
-        style=data.style,
-        layout=data.primary_layout,
-        color=data.primary_color,
-        language=data.language,
-    )
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        desc_future = executor.submit(
+            generate_design_description,
+            purpose=data.purpose, audience=data.audience, style=data.style,
+            layout=data.primary_layout, color=data.primary_color, language=data.language,
+        )
+        palette_future = executor.submit(
+            generate_color_palette,
+            primary_color=data.primary_color, style=data.style, language=data.language,
+        )
+        result = desc_future.result()
+        result.color_palette = palette_future.result()
+
     logger.info("Phase1 complete")
     return result
 
@@ -253,6 +261,7 @@ async def generate(
     desc_key_message_rule: str = Form(""),
     desc_density:          str = Form(""),
     desc_visual:           str = Form(""),
+    desc_color_palette:    str = Form(""),  # JSON-encoded ColorPalette
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -303,6 +312,7 @@ async def generate(
         "key_message_rule": desc_key_message_rule.strip(),
         "density":          desc_density.strip(),
         "visual":           desc_visual.strip(),
+        "color_palette":    desc_color_palette.strip(),
     }
     if any(desc_fields.values()):
         # User có ý định gửi description → báo lỗi ngay nếu thiếu field
@@ -314,11 +324,25 @@ async def generate(
                 detail=(
                     f"Bạn đã điền một số trường mô tả thiết kế nhưng còn thiếu "
                     f"{len(missing)} trường sau: {', '.join(missing_labels)}. "
-                    f"Vui lòng điền đầy đủ cả 5 trường hoặc để trống tất cả "
+                    f"Vui lòng điền đầy đủ cả 6 trường hoặc để trống tất cả "
                     f"(để hệ thống tự sinh)."
                 ),
             )
         description_dict = desc_fields
+
+        # Validate & chuẩn hoá desc_color_palette (JSON-encoded ColorPalette)
+        try:
+            palette_raw = json.loads(description_dict["color_palette"])
+            palette_obj = ColorPalette(**palette_raw)
+        except (json.JSONDecodeError, TypeError, ValidationError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"{_DESC_FIELD_LABELS['color_palette']} không hợp lệ: "
+                    f"dữ liệu JSON bảng màu không đúng định dạng ({e})."
+                ),
+            )
+        description_dict["color_palette"] = palette_obj.model_dump()
 
     # Ghi nhận attempt SAU KHI validate xong — tránh hao slot vì lỗi form
     generate_tracker.record_failed_attempt(current_user.id)

@@ -31,8 +31,10 @@ const STATUS_LABELS: Record<string, string> = {
   FAILED: 'Đã có lỗi xảy ra',
 }
 
-// Labels + hints cho 5 trường DesignDescription
-const DESC_LABELS: Record<keyof DesignDescription, string> = {
+// Labels + hints cho 5 trường text của DesignDescription (color_palette có UI riêng)
+type DescTextField = Exclude<keyof DesignDescription, 'color_palette'>
+
+const DESC_LABELS: Record<DescTextField, string> = {
   tone: 'Giọng điệu',
   font: 'Font chữ',
   key_message_rule: 'Quy tắc thông điệp chính',
@@ -40,12 +42,12 @@ const DESC_LABELS: Record<keyof DesignDescription, string> = {
   visual: 'Hướng dẫn hình ảnh',
 }
 
-const DESC_HINTS: Record<keyof DesignDescription, string> = {
+const DESC_HINTS: Record<DescTextField, string> = {
   tone: 'Phong cách ngôn ngữ, cảm xúc của bài trình bày',
   font: 'Kiểu chữ đề xuất cho tiêu đề và nội dung',
   key_message_rule: 'Quy tắc xây dựng thông điệp chính mỗi slide',
   density: 'Lượng thông tin trên mỗi slide',
-  visual: 'Loại hình ảnh, icon, biểu đồ phù hợp',
+  visual: 'Visual hierarchy (yếu tố nổi bật), loại hình ảnh/icon/biểu đồ, và cách bố trí không gian',
 }
 
 export function GeneratePage() {
@@ -170,9 +172,32 @@ export function GeneratePage() {
   }
 
   const handleDescriptionChange =
-    (field: keyof DesignDescription) => (e: ChangeEvent<HTMLTextAreaElement>) => {
+    (field: DescTextField) => (e: ChangeEvent<HTMLTextAreaElement>) => {
       setDescription(prev => (prev ? { ...prev, [field]: e.target.value } : null))
     }
+
+  const handlePaletteColorChange =
+    (field: 'secondary' | 'accent') => (e: ChangeEvent<HTMLInputElement>) => {
+      setDescription(prev =>
+        prev ? { ...prev, color_palette: { ...prev.color_palette, [field]: e.target.value } } : null
+      )
+    }
+
+  const handlePaletteNeutralChange =
+    (index: number) => (e: ChangeEvent<HTMLInputElement>) => {
+      setDescription(prev => {
+        if (!prev) return null
+        const neutrals = [...prev.color_palette.neutrals]
+        neutrals[index] = e.target.value
+        return { ...prev, color_palette: { ...prev.color_palette, neutrals } }
+      })
+    }
+
+  const handlePaletteDescriptionChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setDescription(prev =>
+      prev ? { ...prev, color_palette: { ...prev.color_palette, description: e.target.value } } : null
+    )
+  }
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -483,8 +508,71 @@ export function GeneratePage() {
               </p>
             </div>
 
+            <div className="gen-palette-section">
+              <h3 className="gen-palette-title">Bảng màu</h3>
+              <div className="gen-palette-swatches">
+                <div className="gen-field gen-field-color">
+                  <label>
+                    Primary
+                    <span className="gen-desc-hint">theo Màu chủ đạo ở Bước 2</span>
+                  </label>
+                  <div className="gen-color-row">
+                    <input type="color" value={description.color_palette.primary} disabled />
+                    <span className="gen-color-hex">{description.color_palette.primary}</span>
+                  </div>
+                </div>
+                <div className="gen-field gen-field-color">
+                  <label>Secondary</label>
+                  <div className="gen-color-row">
+                    <input
+                      type="color"
+                      value={description.color_palette.secondary}
+                      onChange={handlePaletteColorChange('secondary')}
+                      disabled={isRunning}
+                    />
+                    <span className="gen-color-hex">{description.color_palette.secondary}</span>
+                  </div>
+                </div>
+                <div className="gen-field gen-field-color">
+                  <label>Accent</label>
+                  <div className="gen-color-row">
+                    <input
+                      type="color"
+                      value={description.color_palette.accent}
+                      onChange={handlePaletteColorChange('accent')}
+                      disabled={isRunning}
+                    />
+                    <span className="gen-color-hex">{description.color_palette.accent}</span>
+                  </div>
+                </div>
+                {description.color_palette.neutrals.map((hex, i) => (
+                  <div key={i} className="gen-field gen-field-color">
+                    <label>{`Neutral ${i + 1}`}</label>
+                    <div className="gen-color-row">
+                      <input
+                        type="color"
+                        value={hex}
+                        onChange={handlePaletteNeutralChange(i)}
+                        disabled={isRunning}
+                      />
+                      <span className="gen-color-hex">{hex}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="gen-desc-field gen-palette-description">
+                <label>Mô tả & quy tắc phối màu</label>
+                <textarea
+                  value={description.color_palette.description}
+                  onChange={handlePaletteDescriptionChange}
+                  rows={3}
+                  disabled={isRunning}
+                />
+              </div>
+            </div>
+
             <div className="gen-desc-fields">
-              {(Object.keys(DESC_LABELS) as Array<keyof DesignDescription>).map(field => (
+              {(Object.keys(DESC_LABELS) as Array<DescTextField>).map(field => (
                 <div key={field} className="gen-desc-field">
                   <label>
                     {DESC_LABELS[field]}
