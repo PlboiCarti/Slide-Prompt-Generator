@@ -449,7 +449,6 @@ export function GeneratePage() {
   const [submitError, setSubmitError] = useState('')
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null)
   const [isDraftSaving, setIsDraftSaving] = useState(false)
-  const [isAutoSaving, setIsAutoSaving] = useState(false)
   const [draftMessage, setDraftMessage] = useState('')
 
   // UI state
@@ -468,7 +467,7 @@ export function GeneratePage() {
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null)
   // "Latest ref" pattern — giữ reference đến phiên bản mới nhất của handleSubmit mà không
   // làm keyboard shortcut effect (deps=[]) phải re-register listener mỗi render.
-  const latestHandleSubmit = useRef<(e: React.FormEvent) => Promise<void>>(async (_e) => {})
+  const latestHandleSubmit = useRef<(e: React.FormEvent) => Promise<void>>(async (_e) => { })
 
   useEffect(() => {
     if (!user) navigate('/login')
@@ -554,36 +553,6 @@ export function GeneratePage() {
     }
   }, [formData.content])
 
-  // Auto-save debounce — chỉ trigger khi purpose/audience thay đổi (2 trường có ý nghĩa nhất).
-  // 3s là khoảng đủ để người dùng ngừng gõ mà không cảm thấy bị "spam lưu".
-  // Snapshot formData/description/currentDraftId tại thời điểm effect chạy để tránh stale
-  // closure khi timeout fire sau 3s (các field khác có thể đã thay đổi trong lúc đó).
-  useEffect(() => {
-    const purpose = formData.purpose.trim()
-    const audience = formData.audience.trim()
-    if (purpose.length < 3 || audience.length < 3) return
-
-    const payload: SaveDraftPayload = { ...formData, content: contentLatestRef.current, description: description || null }
-    const snapDraftId = currentDraftId
-
-    const timer = setTimeout(async () => {
-      setIsAutoSaving(true)
-      try {
-        if (snapDraftId) {
-          await draftAPI.updateDraft(snapDraftId, payload)
-        } else {
-          const res = await draftAPI.saveDraft(payload)
-          setCurrentDraftId(res.data.id)
-        }
-      } catch {
-        // silent — không hiện lỗi auto-save
-      } finally {
-        setIsAutoSaving(false)
-      }
-    }, 3000)
-
-    return () => clearTimeout(timer)
-  }, [formData.purpose, formData.audience]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ctrl/Cmd+Enter khi focus vào content textarea → submit form
   useEffect(() => {
@@ -591,7 +560,7 @@ export function GeneratePage() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         if (document.activeElement === contentTextareaRef.current) {
           e.preventDefault()
-          void latestHandleSubmit.current({ preventDefault: () => {} } as unknown as React.FormEvent)
+          void latestHandleSubmit.current({ preventDefault: () => { } } as unknown as React.FormEvent)
         }
       }
     }
@@ -933,15 +902,17 @@ export function GeneratePage() {
             </div>
             <span className="gen-console-title">Thiết kế prompt</span>
 
+            {/* 🛠️ SỬA LẠI KHỐI NÚT BẤM TRONG JSX: */}
             <div className="gen-form-toolbar">
               {draftMessage && <span className="gen-draft-message">{draftMessage}</span>}
               <button
                 type="button"
                 className="gen-draft-btn"
                 onClick={handleSaveDraft}
-                disabled={isDraftSaving || isAutoSaving || isFormLocked}
+                disabled={isDraftSaving || isFormLocked} // <-- Bỏ isAutoSaving ở đây
               >
-                {isAutoSaving ? 'Đang tự động lưu...' : isDraftSaving ? 'Đang lưu...' : currentDraftId ? 'Cập nhật Draft' : 'Lưu Draft'}
+                {/* Thay vì check điều kiện loằng ngoằng, ép cứng chữ theo đúng ý định của bạn */}
+                {isDraftSaving ? 'Đang lưu...' : currentDraftId ? 'Cập nhật bản nháp' : 'Lưu thành bản nháp'}
               </button>
             </div>
           </div>
