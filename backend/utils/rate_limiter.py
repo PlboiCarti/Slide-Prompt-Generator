@@ -25,7 +25,7 @@ class LoginAttemptTracker:
         self._attempts: dict[str, list[datetime]] = {}
         self._lock = Lock()
 
-    def record_failed_attempt(self, key: str) -> None:
+    def record_attempt(self, key: str) -> None:
         """Ghi nhận 1 lần thử."""
         with self._lock:
             now = datetime.utcnow()

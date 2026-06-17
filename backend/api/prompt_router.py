@@ -29,7 +29,7 @@ from models.user import User
 from schemas.jobs import GenerateResponse, JobStatusResponse
 from schemas.prompt import ColorPalette, DescribeRequest, DesignDescription
 from services.content_extractor import MAX_FILE_SIZE
-from services.llm_service import generate_design_bundle
+from services.llm_service import generate_design_bundle, generate_design_bundle_async
 from utils.rate_limiter import generate_tracker
 from workers.pipeline_worker import run_pipeline_in_thread
 
@@ -185,7 +185,7 @@ _DESC_FIELD_LABELS = {
     tags=["Prompt Generation"],
     summary="Phase 1 — Phân tích & gợi ý thiết kế",
 )
-def generate_description(
+async def generate_description(
     data: DescribeRequest,
     current_user: User = Depends(get_current_user),):
     """
@@ -205,14 +205,14 @@ def generate_description(
             ),
             headers={"Retry-After": str(retry_after)},
         )
-    generate_tracker.record_failed_attempt(current_user.id)
+    generate_tracker.record_attempt(current_user.id)
         
     logger.info(
         f"Phase1 generate-description | purpose='{data.purpose[:40]}' "
         f"| lang={data.language}"
     )
     try:
-        result = generate_design_bundle(
+        result = await generate_design_bundle_async(
             purpose=data.purpose, audience=data.audience, style=data.style,
             layout=data.primary_layout, color=data.primary_color, language=data.language,
         )
@@ -343,7 +343,7 @@ async def generate(
         description_dict["color_palette"] = palette_obj.model_dump()
 
     # Ghi nhận attempt SAU KHI validate xong — tránh hao slot vì lỗi form
-    generate_tracker.record_failed_attempt(current_user.id)
+    generate_tracker.record_attempt(current_user.id)
 
     # Khởi tạo Job trước để lấy ID (tạm thời để input_payload rỗng hoặc cơ bản)
     job = Job(

@@ -9,6 +9,7 @@ Pipeline 2 giai đoạn:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -226,11 +227,7 @@ def generate_design_bundle(
     color: str,
     language: str,
 ) -> DesignDescription:
-    """
-    Chạy generate_design_description + generate_color_palette song song.
-    Trả về DesignDescription đầy đủ (kể cả color_palette).
-    Dùng chung cho Phase 1 HTTP handler và Phase 2 pipeline fallback.
-    """
+    """Sync version — dùng cho pipeline_worker (chạy trong thread, không có event loop)."""
     with ThreadPoolExecutor(max_workers=2) as executor:
         desc_future = executor.submit(
             generate_design_description,
@@ -243,6 +240,30 @@ def generate_design_bundle(
         )
         result = desc_future.result(timeout=300)
         result.color_palette = palette_future.result(timeout=300)
+    return result
+
+
+async def generate_design_bundle_async(
+    purpose: str,
+    audience: str,
+    style: str,
+    layout: str,
+    color: str,
+    language: str,
+) -> DesignDescription:
+    """Async version — dùng cho Phase 1 HTTP handler (async def endpoint)."""
+    result, palette = await asyncio.gather(
+        asyncio.to_thread(
+            generate_design_description,
+            purpose=purpose, audience=audience, style=style,
+            layout=layout, color=color, language=language,
+        ),
+        asyncio.to_thread(
+            generate_color_palette,
+            primary_color=color, style=style, language=language,
+        ),
+    )
+    result.color_palette = palette
     return result
 
 
