@@ -604,6 +604,8 @@ def _build_full_master_prompt(
     """Ghép thành chuỗi hoàn chỉnh để user copy vào AI khác."""
     n = len(slides)
 
+    color_palette = _format_color_palette_block(design_description.color_palette, language)
+
     if language == "vi":
         role_text = (
             "Bạn là chuyên gia thiết kế slide PowerPoint với 10+ năm kinh nghiệm trong thiết kế trình bày trực quan và kể chuyện bằng dữ liệu. "
@@ -666,8 +668,6 @@ def _build_full_master_prompt(
             f"Density: {design_description.density}\n"
             f"Visual: {design_description.visual}"
         )
-
-        color_palette = _format_color_palette_block(design_description.color_palette, language)
 
         format_text = (
             f"The output must be an actual presentation file (.pptx) that can be opened in PowerPoint/Google Slides.\n"
