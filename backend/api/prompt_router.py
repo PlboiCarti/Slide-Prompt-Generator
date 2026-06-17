@@ -11,7 +11,6 @@ import json
 import logging
 import os
 import shutil
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
@@ -30,7 +29,7 @@ from models.user import User
 from schemas.jobs import GenerateResponse, JobStatusResponse
 from schemas.prompt import ColorPalette, DescribeRequest, DesignDescription
 from services.content_extractor import MAX_FILE_SIZE
-from services.llm_service import generate_color_palette, generate_design_description
+from services.llm_service import generate_design_bundle
 from utils.rate_limiter import generate_tracker
 from workers.pipeline_worker import run_pipeline_in_thread
 
@@ -212,18 +211,10 @@ def generate_description(
         f"Phase1 generate-description | purpose='{data.purpose[:40]}' "
         f"| lang={data.language}"
     )
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        desc_future = executor.submit(
-            generate_design_description,
-            purpose=data.purpose, audience=data.audience, style=data.style,
-            layout=data.primary_layout, color=data.primary_color, language=data.language,
-        )
-        palette_future = executor.submit(
-            generate_color_palette,
-            primary_color=data.primary_color, style=data.style, language=data.language,
-        )
-        result = desc_future.result(timeout=90)
-        result.color_palette = palette_future.result(timeout=90)
+    result = generate_design_bundle(
+        purpose=data.purpose, audience=data.audience, style=data.style,
+        layout=data.primary_layout, color=data.primary_color, language=data.language,
+    )
 
     logger.info("Phase1 complete")
     return result

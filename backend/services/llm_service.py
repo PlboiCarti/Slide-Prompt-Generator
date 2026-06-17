@@ -13,6 +13,7 @@ import json
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
 from google import genai
@@ -215,6 +216,34 @@ JSON Schema:
         neutrals=parsed.get("neutrals", []),
         description=parsed.get("description", ""),
     )
+
+
+def generate_design_bundle(
+    purpose: str,
+    audience: str,
+    style: str,
+    layout: str,
+    color: str,
+    language: str,
+) -> DesignDescription:
+    """
+    Chạy generate_design_description + generate_color_palette song song.
+    Trả về DesignDescription đầy đủ (kể cả color_palette).
+    Dùng chung cho Phase 1 HTTP handler và Phase 2 pipeline fallback.
+    """
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        desc_future = executor.submit(
+            generate_design_description,
+            purpose=purpose, audience=audience, style=style,
+            layout=layout, color=color, language=language,
+        )
+        palette_future = executor.submit(
+            generate_color_palette,
+            primary_color=color, style=style, language=language,
+        )
+        result = desc_future.result(timeout=90)
+        result.color_palette = palette_future.result(timeout=90)
+    return result
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -444,6 +473,24 @@ JSON: {{"contents": ["nội dung slide 1", "nội dung slide 2", ...]}}"""
     return contents[:n]
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
+def _summarize_chunk(chunk: str, lang_instr: str) -> str:
+    prompt = (
+        f"Tóm tắt đoạn văn sau, giữ TẤT CẢ thông tin quan trọng "
+        f"(số liệu, tên, sự kiện, luận điểm). Không bịa thêm. {lang_instr}\n\n{chunk}"
+    )
+    resp = _client.models.generate_content(
+        model=settings.llm_model,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            temperature=0.1,
+            max_output_tokens=1000,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+        ),
+    )
+    return (resp.text or "").strip()
+
+
 def _recursive_summarize(content: str, language: str, max_len: int = 12_000) -> str:
     """Tóm tắt content quá dài bằng cách chia chunk."""
     logger.info(f"Content {len(content)} ký tự — tóm tắt đệ quy")
@@ -452,23 +499,10 @@ def _recursive_summarize(content: str, language: str, max_len: int = 12_000) -> 
 
     summaries: list[str] = []
     for i, chunk in enumerate(chunks):
-        prompt = (
-            f"Tóm tắt đoạn văn sau, giữ TẤT CẢ thông tin quan trọng "
-            f"(số liệu, tên, sự kiện, luận điểm). Không bịa thêm. {lang_instr}\n\n{chunk}"
-        )
         with _timed(f"  summarize chunk {i + 1}/{len(chunks)}"):
-            resp = _client.models.generate_content(
-                model=settings.llm_model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.1,
-                    max_output_tokens=1000,
-                    thinking_config=types.ThinkingConfig(thinking_budget=0),
-                ),
-            )
-        text = resp.text or ""
-        summaries.append(text.strip())
-        logger.info(f"  chunk {i + 1}/{len(chunks)} summarized: {len(chunk)} → {len(text.strip())} ký tự")
+            text = _summarize_chunk(chunk, lang_instr)
+        summaries.append(text)
+        logger.info(f"  chunk {i + 1}/{len(chunks)} summarized: {len(chunk)} → {len(text)} ký tự")
 
     combined = "\n\n".join(summaries)
     if len(combined) > max_len:
