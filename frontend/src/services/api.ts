@@ -20,12 +20,21 @@ export interface RegisterPayload {
   password: string
 }
 
+export interface ColorPalette {
+  primary: string
+  secondary: string
+  accent: string
+  neutrals: string[]
+  description: string
+}
+
 export interface DesignDescription {
   tone: string
   font: string
   key_message_rule: string
   density: string
   visual: string
+  color_palette: ColorPalette
 }
 
 export interface DescribePayload {
@@ -157,6 +166,7 @@ export const promptAPI = {
       formData.append('desc_key_message_rule', data.description.key_message_rule)
       formData.append('desc_density', data.description.density)
       formData.append('desc_visual', data.description.visual)
+      formData.append('desc_color_palette', JSON.stringify(data.description.color_palette))
     }
     return api.post('/generate', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },

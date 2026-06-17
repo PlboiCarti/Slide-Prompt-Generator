@@ -18,7 +18,7 @@ from contextlib import contextmanager
 import google.generativeai as genai
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from schemas.prompt import DesignDescription, MasterPromptResult, SlideInstruction
+from schemas.prompt import ColorPalette, DesignDescription, MasterPromptResult, SlideInstruction
 from utils.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -97,7 +97,7 @@ def generate_design_description(
     - font: Đúng 1 tên font chữ duy nhất — KHÔNG dùng "hoặc", không giải thích, chỉ chọn Font chữ có hỗ trợ {language_type}
     - key_message_rule: Cách trình bày ý chính trên slide (ngắn, súc tích, in đậm, v.v.)
     - density: Mật độ nội dung — số bullet tối đa, tỉ lệ chữ/hình, v.v.
-    - visual: Hướng dẫn visual hierarchy, cách phối màu, không gian bố cục
+    - visual: Hướng dẫn visual hierarchy (yếu tố nào được nhấn mạnh/làm nổi bật), loại hình ảnh/icon/biểu đồ phù hợp, và cách bố trí không gian (spacing, căn lề, tỉ lệ vùng nội dung)
     - Trả về JSON hợp lệ, KHÔNG markdown code fence
     - QUAN TRỌNG:
         + Trả về JSON hợp lệ tuyệt đối
@@ -130,6 +130,87 @@ JSON Schema:
         key_message_rule=parsed.get("key_message_rule", ""),
         density=parsed.get("density", ""),
         visual=parsed.get("visual", ""),
+        # placeholder — caller fills in via generate_color_palette() right after
+        color_palette=ColorPalette(primary="", secondary="", accent="", neutrals=[], description=""),
+    )
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
+def generate_color_palette(
+    primary_color: str,
+    style: str,
+    language: str,
+) -> ColorPalette:
+    """
+    Phase 1 — Sinh bảng màu (secondary/accent/neutrals/description) dựa trên
+    primary_color do user chọn + style.
+    `primary` lấy trực tiếp từ tham số đầu vào — KHÔNG qua Gemini.
+
+    Độc lập với generate_design_description() (không nhận tone/purpose/audience)
+    → có thể gọi ĐỒNG THỜI với generate_design_description() (ThreadPoolExecutor),
+    không tạo dependency chờ nhau giữa 2 lệnh Gemini.
+    """
+    lang_instr = (
+        "Toàn bộ nội dung PHẢI bằng tiếng Việt."
+        if language == "vi"
+        else "All content MUST be in English."
+    )
+
+    prompt = f"""
+<task>
+    Bạn là chuyên gia color theory cho thiết kế slide thuyết trình chuyên nghiệp.
+    Dựa trên màu chủ đạo (primary) do người dùng chọn, hãy đề xuất một BẢNG MÀU hoàn chỉnh,
+    hài hoà, hiện đại — tránh cảm giác đơn điệu (chỉ 1 màu xuyên suốt) hoặc rập khuôn AI.
+</task>
+
+<input>
+    Màu chủ đạo (primary, KHÔNG thay đổi): {primary_color}
+    Phong cách thiết kế: {style}
+    Ngôn ngữ: {language}
+</input>
+
+<rules>
+    - {lang_instr}
+    - secondary: 1 mã hex màu phụ — phối hợp hài hoà với primary (analogous/complementary/triadic
+      tuỳ phong cách), đủ tương phản để phân biệt vai trò
+    - accent: 1 mã hex màu nhấn — dùng cho CTA, số liệu nổi bật, icon quan trọng;
+      tương phản rõ với primary và secondary
+    - neutrals: mảng 2-3 mã hex màu trung tính (trắng/xám/đen hoặc tông ấm/lạnh nhẹ tương ứng
+      phong cách) dùng cho nền, text, đường kẻ
+    - description: mô tả NGẮN GỌN (3-5 câu, không xuống dòng) gồm:
+        + Tên gọi/vai trò từng màu và lý do phối hợp với primary
+        + Quy tắc tỉ lệ sử dụng — VÍ DỤ: "Primary chiếm 50-60% diện tích, Secondary và Accent
+          mỗi màu 15-20%, Neutrals 20-25% còn lại cho nền/văn bản"
+        + CẢNH BÁO phong cách: 1-2 điều KHÔNG nên làm để tránh trông rập khuôn/AI-generated,
+          ví dụ: "KHÔNG dùng solid color bar/stripe accent ở cạnh slide — trông cliché"
+    - Tất cả mã hex phải đúng định dạng #RRGGBB (chữ hoa)
+    - Trả về JSON hợp lệ, KHÔNG markdown code fence
+    - QUAN TRỌNG: mỗi value (trừ neutrals) là string 1 dòng, KHÔNG xuống dòng; description tối đa 80 từ
+</rules>
+
+JSON Schema:
+{{
+  "secondary":    "#RRGGBB",
+  "accent":       "#RRGGBB",
+  "neutrals":     ["#RRGGBB", "#RRGGBB"],
+  "description":  "..."
+}}"""
+
+    with _timed("Phase1 generate_color_palette"):
+        resp = _model().generate_content(
+            prompt,
+            generation_config=_json_config(temp=0.7, tokens=4000),
+        )
+
+    parsed = _safe_parse(resp.text)
+    logger.info("Color palette generated")
+
+    return ColorPalette(
+        primary=primary_color,
+        secondary=parsed.get("secondary", ""),
+        accent=parsed.get("accent", ""),
+        neutrals=parsed.get("neutrals", []),
+        description=parsed.get("description", ""),
     )
 
 
@@ -395,7 +476,6 @@ def assemble_master_prompt(
     purpose: str,
     audience: str,
     style: str,
-    primary_color: str,
     primary_layout: str,
     design_description: DesignDescription,
     slides: list[SlideInstruction],
@@ -410,7 +490,6 @@ def assemble_master_prompt(
         purpose=purpose,
         audience=audience,
         style=style,
-        primary_color=primary_color,
         primary_layout=primary_layout,
         design_description=design_description,
         slides=slides_sorted,
@@ -426,11 +505,34 @@ def assemble_master_prompt(
     )
 
 
+def _format_color_palette_block(palette: ColorPalette, language: str) -> str:
+    """Format ColorPalette thành text block cho master prompt (self-contained)."""
+    neutrals_str = ", ".join(palette.neutrals) if palette.neutrals else "—"
+    if language == "vi":
+        return (
+            f"Primary (màu chủ đạo): {palette.primary}\n"
+            f"Secondary (màu phụ): {palette.secondary}\n"
+            f"Accent (màu nhấn): {palette.accent}\n"
+            f"Neutrals (màu trung tính): {neutrals_str}\n"
+            f"Hướng dẫn phối màu: {palette.description}\n"
+            f"BẮT BUỘC áp dụng bảng màu này cho TOÀN BỘ slide — "
+            f"KHÔNG chỉ dùng một màu duy nhất xuyên suốt."
+        )
+    return (
+        f"Primary: {palette.primary}\n"
+        f"Secondary: {palette.secondary}\n"
+        f"Accent: {palette.accent}\n"
+        f"Neutrals: {neutrals_str}\n"
+        f"Usage guidance: {palette.description}\n"
+        f"This palette is MANDATORY for ALL slides — "
+        f"do NOT use a single color throughout."
+    )
+
+
 def _build_full_master_prompt(
     purpose: str,
     audience: str,
     style: str,
-    primary_color: str,
     primary_layout: str,
     design_description: DesignDescription,
     slides: list[SlideInstruction],
@@ -451,8 +553,7 @@ def _build_full_master_prompt(
         )
         guideline_text = (
             f"Mục tiêu của bộ slide là {purpose}, hướng đến đối tượng {audience} "
-            f"với phong cách thiết kế {style}. "
-            f"Màu sắc chủ đạo là {primary_color} và layout chính theo dạng {primary_layout}."
+            f"với phong cách thiết kế {style} và layout chính theo dạng {primary_layout}."
         )
         desc_text = (
             f"Tone: {design_description.tone}\n"
@@ -474,6 +575,7 @@ def _build_full_master_prompt(
             "task":    "[NHIỆM VỤ]",
             "guide":   "[CHỈ DẪN]",
             "desc":    "[MÔ TẢ THIẾT KẾ]",
+            "palette": "[BẢNG MÀU — BẮT BUỘC]",
             "format":  "[YÊU CẦU FORMAT OUTPUT]",
             "note":    "[LƯU Ý]",
             "content": "[NỘI DUNG TỪNG SLIDE]",
@@ -492,8 +594,7 @@ def _build_full_master_prompt(
         )
         guideline_text = (
             f"The goal of this presentation is {purpose}, targeting {audience} "
-            f"with a {style} design style. "
-            f"The primary color is {primary_color} and the main layout follows the {primary_layout} format."
+            f"with a {style} design style and the main layout follows the {primary_layout} format."
         )
         desc_text = (
             f"Tone: {design_description.tone}\n"
@@ -515,6 +616,7 @@ def _build_full_master_prompt(
             "task":    "[YOUR TASK]",
             "guide":   "[GUIDELINES]",
             "desc":    "[DESIGN DESCRIPTION]",
+            "palette": "[COLOR PALETTE — MANDATORY]",
             "format":  "[OUTPUT FORMAT]",
             "note":    "[NOTE]",
             "content": "[SLIDE CONTENT]",
@@ -534,6 +636,9 @@ def _build_full_master_prompt(
         "",
         headers["desc"],
         desc_text,
+        "",
+        headers["palette"],
+        _format_color_palette_block(design_description.color_palette, language),
         "",
         headers["note"],
         note_text,

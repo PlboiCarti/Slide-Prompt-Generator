@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from datetime import datetime
 from threading import Thread
@@ -25,6 +26,7 @@ from schemas.prompt import DesignDescription
 from services.llm_service import (
     assemble_master_prompt,
     fill_slide_contents,
+    generate_color_palette,
     generate_design_description,
     generate_slide_structure,
 )
@@ -90,14 +92,18 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
             logger.info(f"[{job_id[:8]}] Using description from Phase 1")
         else:
             logger.info(f"[{job_id[:8]}] No description provided — generating automatically")
-            design_description = generate_design_description(
-                purpose=purpose,
-                audience=audience,
-                style=style,
-                layout=primary_layout,
-                color=primary_color,
-                language=language,
-            )
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                desc_future = executor.submit(
+                    generate_design_description,
+                    purpose=purpose, audience=audience, style=style,
+                    layout=primary_layout, color=primary_color, language=language,
+                )
+                palette_future = executor.submit(
+                    generate_color_palette,
+                    primary_color=primary_color, style=style, language=language,
+                )
+                design_description = desc_future.result()
+                design_description.color_palette = palette_future.result()
 
         # ── B2: Sinh cấu trúc slide ───────────────────────────────────
         logger.info(f"[{job_id[:8]}] B2: generating slide structure...")
@@ -127,7 +133,6 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
             purpose=purpose,
             audience=audience,
             style=style,
-            primary_color=primary_color,
             primary_layout=primary_layout,
             design_description=design_description,
             slides=slides,

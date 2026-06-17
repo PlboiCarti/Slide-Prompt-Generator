@@ -6,16 +6,30 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
+class ColorPalette(BaseModel):
+    """
+    Bảng màu cho bộ slide — Phase 1.
+    `primary` = primary_color do user chọn (backend gán trực tiếp, KHÔNG qua Gemini).
+    `secondary/accent/neutrals/description` do Gemini sinh dựa trên primary + style.
+    """
+    primary: str
+    secondary: str
+    accent: str
+    neutrals: list[str] = Field(default_factory=list)
+    description: str
+
+
 class DesignDescription(BaseModel):
     """
     Mô tả thiết kế từ Phase 1.
-    Frontend hiển thị thành 5 ô input riêng — user có thể chỉnh sửa từng ô.
+    Frontend hiển thị thành 5 ô input + 1 bảng màu — user có thể chỉnh sửa từng ô.
     """
     tone: str
     font: str
     key_message_rule: str
     density: str
     visual: str
+    color_palette: ColorPalette
 
 
 class DescribeRequest(BaseModel):
