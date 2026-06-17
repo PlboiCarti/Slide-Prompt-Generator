@@ -15,7 +15,8 @@ import re
 import time
 from contextlib import contextmanager
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from schemas.prompt import ColorPalette, DesignDescription, MasterPromptResult, SlideInstruction
@@ -24,18 +25,18 @@ from utils.config import get_settings
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+_client = genai.Client(
+    api_key=settings.gemini_api_key,
+    http_options=types.HttpOptions(timeout=90000),  # milliseconds → 90 giây
+)
 
-def _model():
-    """Tạo model — configure API key mỗi lần để chắc chắn."""
-    genai.configure(api_key=settings.gemini_api_key)
-    return genai.GenerativeModel(settings.llm_model)
 
-
-def _json_config(temp: float = 0.7, tokens: int = 4000):
-    return genai.GenerationConfig(
+def _json_config(temp: float = 0.7, tokens: int = 4000) -> types.GenerateContentConfig:
+    return types.GenerateContentConfig(
         temperature=temp,
         max_output_tokens=tokens,
         response_mime_type="application/json",
+        thinking_config=types.ThinkingConfig(thinking_budget=0),  # tắt thinking cho task JSON đơn giản
     )
 
 
@@ -116,9 +117,10 @@ JSON Schema:
 }}"""
 
     with _timed("Phase1 generate_design_description"):
-        resp = _model().generate_content(
-            prompt,
-            generation_config=_json_config(temp=0.7, tokens=2000),
+        resp = _client.models.generate_content(
+            model=settings.llm_model,
+            contents=prompt,
+            config=_json_config(temp=0.7, tokens=2000),
         )
 
     parsed = _safe_parse(resp.text)
@@ -197,9 +199,10 @@ JSON Schema:
 }}"""
 
     with _timed("Phase1 generate_color_palette"):
-        resp = _model().generate_content(
-            prompt,
-            generation_config=_json_config(temp=0.7, tokens=4000),
+        resp = _client.models.generate_content(
+            model=settings.llm_model,
+            contents=prompt,
+            config=_json_config(temp=0.7, tokens=4000),
         )
 
     parsed = _safe_parse(resp.text)
@@ -269,9 +272,10 @@ JSON Schema:
 }}"""
 
     with _timed(f"B2 generate_slide_structure ({slide_count} slides)"):
-        resp = _model().generate_content(
-            prompt,
-            generation_config=_json_config(temp=0.5, tokens=3000),
+        resp = _client.models.generate_content(
+            model=settings.llm_model,
+            contents=prompt,
+            config=_json_config(temp=0.5, tokens=3000),
         )
 
     parsed = _safe_parse(resp.text)
@@ -425,9 +429,10 @@ def _split_batch(
 JSON: {{"contents": ["nội dung slide 1", "nội dung slide 2", ...]}}"""
 
     with _timed(f"B3 _split_batch ({n} slides, start={start_index})"):
-        resp = _model().generate_content(
-            prompt,
-            generation_config=_json_config(temp=0.2, tokens=6000),
+        resp = _client.models.generate_content(
+            model=settings.llm_model,
+            contents=prompt,
+            config=_json_config(temp=0.2, tokens=6000),
         )
 
     parsed = _safe_parse(resp.text)
@@ -452,10 +457,13 @@ def _recursive_summarize(content: str, language: str, max_len: int = 12_000) -> 
             f"(số liệu, tên, sự kiện, luận điểm). Không bịa thêm. {lang_instr}\n\n{chunk}"
         )
         with _timed(f"  summarize chunk {i + 1}/{len(chunks)}"):
-            resp = _model().generate_content(
-                prompt,
-                generation_config=genai.GenerationConfig(
-                    temperature=0.1, max_output_tokens=1000,
+            resp = _client.models.generate_content(
+                model=settings.llm_model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.1,
+                    max_output_tokens=1000,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
             )
         text = resp.text or ""
@@ -510,22 +518,22 @@ def _format_color_palette_block(palette: ColorPalette, language: str) -> str:
     neutrals_str = ", ".join(palette.neutrals) if palette.neutrals else "—"
     if language == "vi":
         return (
-            f"Primary (màu chủ đạo): {palette.primary}\n"
-            f"Secondary (màu phụ): {palette.secondary}\n"
-            f"Accent (màu nhấn): {palette.accent}\n"
-            f"Neutrals (màu trung tính): {neutrals_str}\n"
-            f"Hướng dẫn phối màu: {palette.description}\n"
-            f"BẮT BUỘC áp dụng bảng màu này cho TOÀN BỘ slide — "
-            f"KHÔNG chỉ dùng một màu duy nhất xuyên suốt."
+            f"- Primary (màu chủ đạo): {palette.primary}\n"
+            f"- Secondary (màu phụ): {palette.secondary}\n"
+            f"- Accent (màu nhấn): {palette.accent}\n"
+            f"- Neutrals (màu trung tính): {neutrals_str}\n"
+            f"- Hướng dẫn phối màu: {palette.description}\n"
+            f"- BẮT BUỘC áp dụng bảng màu này cho TOÀN BỘ slide — "
+            f"- KHÔNG chỉ dùng một màu duy nhất xuyên suốt."
         )
     return (
-        f"Primary: {palette.primary}\n"
-        f"Secondary: {palette.secondary}\n"
-        f"Accent: {palette.accent}\n"
-        f"Neutrals: {neutrals_str}\n"
-        f"Usage guidance: {palette.description}\n"
-        f"This palette is MANDATORY for ALL slides — "
-        f"do NOT use a single color throughout."
+        f"- Primary: {palette.primary}\n"
+        f"- Secondary: {palette.secondary}\n"
+        f"- Accent: {palette.accent}\n"
+        f"- Neutrals: {neutrals_str}\n"
+        f"- Usage guidance: {palette.description}\n"
+        f"- This palette is MANDATORY for ALL slides — "
+        f"- do NOT use a single color throughout."
     )
 
 
@@ -603,6 +611,9 @@ def _build_full_master_prompt(
             f"Density: {design_description.density}\n"
             f"Visual: {design_description.visual}"
         )
+
+        color_palette = _format_color_palette_block(design_description.color_palette, language)
+
         format_text = (
             f"The output must be an actual presentation file (.pptx) that can be opened in PowerPoint/Google Slides.\n"
             f"NOT code, NOT written descriptions.\n"
@@ -638,7 +649,7 @@ def _build_full_master_prompt(
         desc_text,
         "",
         headers["palette"],
-        _format_color_palette_block(design_description.color_palette, language),
+        color_palette,
         "",
         headers["note"],
         note_text,

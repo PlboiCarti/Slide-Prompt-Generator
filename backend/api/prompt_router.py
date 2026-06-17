@@ -222,8 +222,8 @@ def generate_description(
             generate_color_palette,
             primary_color=data.primary_color, style=data.style, language=data.language,
         )
-        result = desc_future.result()
-        result.color_palette = palette_future.result()
+        result = desc_future.result(timeout=90)
+        result.color_palette = palette_future.result(timeout=90)
 
     logger.info("Phase1 complete")
     return result

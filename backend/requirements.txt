@@ -12,9 +12,7 @@ sqlalchemy
 psycopg2-binary
 
 # LLM
-google-generativeai
-grpcio==1.60.0
-grpcio-status==1.60.0
+google-genai
 tenacity
 
 # PDF

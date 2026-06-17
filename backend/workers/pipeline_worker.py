@@ -102,8 +102,8 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
                     generate_color_palette,
                     primary_color=primary_color, style=style, language=language,
                 )
-                design_description = desc_future.result()
-                design_description.color_palette = palette_future.result()
+                design_description = desc_future.result(timeout=90)
+                design_description.color_palette = palette_future.result(timeout=90)
 
         # ── B2: Sinh cấu trúc slide ───────────────────────────────────
         logger.info(f"[{job_id[:8]}] B2: generating slide structure...")
