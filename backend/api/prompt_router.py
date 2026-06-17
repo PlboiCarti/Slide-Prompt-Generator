@@ -211,10 +211,17 @@ def generate_description(
         f"Phase1 generate-description | purpose='{data.purpose[:40]}' "
         f"| lang={data.language}"
     )
-    result = generate_design_bundle(
-        purpose=data.purpose, audience=data.audience, style=data.style,
-        layout=data.primary_layout, color=data.primary_color, language=data.language,
-    )
+    try:
+        result = generate_design_bundle(
+            purpose=data.purpose, audience=data.audience, style=data.style,
+            layout=data.primary_layout, color=data.primary_color, language=data.language,
+        )
+    except Exception as e:
+        logger.error(f"Phase1 generate_design_bundle failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Dịch vụ AI tạm thời không phản hồi. Vui lòng thử lại sau ít phút.",
+        )
 
     logger.info("Phase1 complete")
     return result

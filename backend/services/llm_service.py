@@ -241,8 +241,8 @@ def generate_design_bundle(
             generate_color_palette,
             primary_color=color, style=style, language=language,
         )
-        result = desc_future.result(timeout=90)
-        result.color_palette = palette_future.result(timeout=90)
+        result = desc_future.result(timeout=300)
+        result.color_palette = palette_future.result(timeout=300)
     return result
 
 

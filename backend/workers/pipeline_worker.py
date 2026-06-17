@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from database.connection import SessionLocal
 from models.job import Job
 from schemas.prompt import DesignDescription
+from services.content_extractor import extract_content_from_files, normalize_extract_error
 from services.llm_service import (
     assemble_master_prompt,
     fill_slide_contents,
@@ -79,7 +80,6 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
         _update_job(db, job_id, "PROCESSING")
         logger.info(f"[{job_id[:8]}] PROCESSING | purpose='{purpose[:40]}'")
 
-        from services.content_extractor import extract_content_from_files, normalize_extract_error
         # raw_content la text goc tu form; final_content la ket qua da gop text + file/OCR.
         if file_paths or raw_content.strip():
             try:
