@@ -1,18 +1,33 @@
-/**
- * RegisterPage — Trang đăng ký tài khoản mới
- *
- * Validate client-side (password match, độ dài) trước khi gọi API để tiết kiệm
- * round-trip và cho feedback tức thì mà không cần chờ server.
- *
- * Sau khi đăng ký thành công, component không navigate sang trang khác mà render
- * màn hình "Kiểm tra email" ngay tại chỗ — giữ người dùng focus vào việc verify email.
- * registeredEmail !== '' là điều kiện để hiện màn hình đó.
- */
-import { useState, FormEvent } from 'react'
+import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { authAPI } from '../services/api'
 import { ThemeToggle } from '../components/ThemeToggle'
 import './AuthPage.css'
+
+const PENDING_VERIFICATION_KEY = 'pendingEmailVerification'
+const POLL_INTERVAL_MS = 3000
+const POLL_TIMEOUT_MS = 10 * 60 * 1000 // 10 phút
+const RESEND_COOLDOWN_MS = 120 * 1000 // 120 giây
+
+interface PendingVerification {
+  email: string
+  startedAt: number
+}
+
+function readPendingVerification(): PendingVerification | null {
+  const raw = localStorage.getItem(PENDING_VERIFICATION_KEY)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    if (typeof parsed.email === 'string' && typeof parsed.startedAt === 'number') {
+      return parsed
+    }
+  } catch {
+    // dữ liệu cũ/hỏng → bỏ qua
+  }
+  return null
+}
 
 export function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -20,10 +35,14 @@ export function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [registeredEmail, setRegisteredEmail] = useState('')
+  const [pending, setPending] = useState<PendingVerification | null>(readPendingVerification)
+  const [pollingExpired, setPollingExpired] = useState(false)
+  const [isResending, setIsResending] = useState(false)
+  const [resendMessage, setResendMessage] = useState('')
+  const [resendError, setResendError] = useState(false)
+  const [cooldownRemaining, setCooldownRemaining] = useState(0)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-
   const { register } = useAuth()
   const navigate = useNavigate()
 
@@ -46,9 +65,10 @@ export function RegisterPage() {
 
     try {
       await register(email, password)
-      // Lưu email để hiện trên màn hình xác nhận; khi registeredEmail !== '' component
-      // render màn hình "Kiểm tra hộp thư" thay vì form đăng ký.
-      setRegisteredEmail(email)
+      const newPending: PendingVerification = { email, startedAt: Date.now() }
+      localStorage.setItem(PENDING_VERIFICATION_KEY, JSON.stringify(newPending))
+      setPending(newPending)
+      setPollingExpired(false)
     } catch (err: any) {
       // err.response?.data?.detail — chuỗi lỗi từ FastAPI (email đã tồn tại, v.v.)
       setError(err.response?.data?.detail || 'Đăng ký thất bại')
@@ -57,32 +77,160 @@ export function RegisterPage() {
     }
   }
 
-  if (registeredEmail) {
+  const handleRegisterDifferentEmail = () => {
+    localStorage.removeItem(PENDING_VERIFICATION_KEY)
+    setPending(null)
+    setPollingExpired(false)
+    setResendMessage('')
+  }
+
+  const handleResend = async () => {
+    if (!pending) return
+    setIsResending(true)
+    setResendMessage('')
+    try {
+      const { data } = await authAPI.resendVerification(pending.email)
+      const refreshed: PendingVerification = { email: pending.email, startedAt: Date.now() }
+      localStorage.setItem(PENDING_VERIFICATION_KEY, JSON.stringify(refreshed))
+      setPending(refreshed)
+      setPollingExpired(false)
+      setResendError(false)
+      setResendMessage(data.message)
+    } catch (err: any) {
+      setResendError(true)
+      setResendMessage(err.response?.data?.detail || 'Gửi lại email thất bại, vui lòng thử lại.')
+    } finally {
+      setIsResending(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!pending) return
+
+    let cancelled = false
+    let intervalId: ReturnType<typeof setInterval> | null = null
+    let expired = false
+
+    const checkStatus = async () => {
+      if (Date.now() - pending.startedAt > POLL_TIMEOUT_MS) {
+        expired = true
+        setPollingExpired(true)
+        if (intervalId) {
+          clearInterval(intervalId)
+          intervalId = null
+        }
+        return
+      }
+      try {
+        const { data } = await authAPI.getVerificationStatus(pending.email)
+        if (!cancelled && data.verified) {
+          localStorage.removeItem(PENDING_VERIFICATION_KEY)
+          navigate('/login?verified=success', { replace: true })
+        }
+      } catch {
+        // Lỗi tạm thời (mất mạng...) → bỏ qua, thử lại ở lần poll tiếp theo
+      }
+    }
+
+    const startPolling = () => {
+      if (intervalId || expired) return
+      checkStatus()
+      intervalId = setInterval(checkStatus, POLL_INTERVAL_MS)
+    }
+
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId)
+        intervalId = null
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling()
+      } else {
+        startPolling()
+      }
+    }
+
+    if (!document.hidden) startPolling()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      cancelled = true
+      stopPolling()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [pending, navigate])
+
+  useEffect(() => {
+    if (!pending) {
+      setCooldownRemaining(0)
+      return
+    }
+
+    const tick = () => {
+      const remaining = Math.max(
+        0,
+        Math.ceil((pending.startedAt + RESEND_COOLDOWN_MS - Date.now()) / 1000)
+      )
+      setCooldownRemaining(remaining)
+    }
+
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [pending])
+
+  if (pending) {
     return (
       <div className="auth-container">
         <ThemeToggle />
-        <div className="auth-glow auth-glow-pink" />
-        <div className="auth-glow auth-glow-blue" />
-
-        <div className="auth-card auth-card-center auth-success-card">
-          <div className="auth-icon-success">✓</div>
-
-          <span className="auth-card-badge">Email Verification</span>
-          <h1>Đăng ký thành công</h1>
-
+        <div className="auth-card auth-card-center">
+          <div className="auth-icon-success">✉</div>
+          <h1>Xác thực email để hoàn tất đăng ký</h1>
           <p className="auth-card-text">
             Một email xác thực đã được gửi đến
             <br />
-            <strong>{registeredEmail}</strong>
+            <strong>{pending.email}</strong>
           </p>
 
           <p className="auth-card-hint">
-            Vui lòng kiểm tra hộp thư, kể cả thư mục spam, rồi click vào link xác thực
-            để hoàn tất đăng ký.
+            Vui lòng kiểm tra hộp thư (cả thư mục spam) và click vào link xác thực để
+            hoàn tất đăng ký. Trang này sẽ tự động chuyển tiếp khi xác thực xong.
           </p>
+
+          {pollingExpired && (
+            <p className="auth-card-hint">
+              Đã quá 10 phút mà chưa xác thực — tự động kiểm tra đã tạm dừng. Bấm
+              "Gửi lại email xác thực" để nhận link mới và tiếp tục.
+            </p>
+          )}
+
+          {resendMessage && (
+            <div className={resendError ? 'error-message' : 'success-message'}>
+              {resendMessage}
+            </div>
+          )}
+
+          <button
+            onClick={handleResend}
+            disabled={isResending || cooldownRemaining > 0}
+            className="btn-primary"
+          >
+            {isResending
+              ? 'Đang gửi lại...'
+              : cooldownRemaining > 0
+                ? `Gửi lại sau ${cooldownRemaining}s`
+                : 'Gửi lại email xác thực'}
+          </button>
+
 
           <button onClick={() => navigate('/login')} className="btn-primary">
             Về trang đăng nhập
+          </button>
+          <button onClick={handleRegisterDifferentEmail} className="btn-text">
+            Đăng ký bằng email khác
           </button>
         </div>
       </div>

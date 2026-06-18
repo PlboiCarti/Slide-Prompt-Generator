@@ -19,7 +19,7 @@ from models.user import User
 from schemas.auth import UserRegister
 from services.email_service import send_verification_email
 from utils.config import get_settings
-from utils.rate_limiter import login_tracker
+from utils.rate_limiter import login_tracker, resend_tracker
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -116,6 +116,44 @@ class AuthService:
         logger.info(f"Email verified: {user.email} (id={str(user.id)[:8]})")
         return user
 
+    def is_email_verified(self, email: str) -> bool:
+        """Check email đã verify chưa — dùng cho trang đăng ký polling."""
+        user = self.db.query(User).filter(User.email == email).first()
+        return bool(user and user.is_email_verified)
+
+    def resend_verification_email(self, email: str) -> None:
+        """
+        Gửi lại email xác thực với token mới.
+        Luôn trả về thành công (không raise) nếu email không tồn tại hoặc đã
+        verify — tránh lộ thông tin email nào đã đăng ký (chống enumeration).
+        """
+        if resend_tracker.is_locked(email):
+            logger.warning(f"Resend verification blocked (rate limit): {email}")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"Bạn vừa yêu cầu gửi lại email quá nhiều lần. "
+                    f"Vui lòng thử lại sau {settings.RESEND_LOCKOUT_MINUTES} phút."
+                ),
+            )
+        resend_tracker.record_attempt(email)
+
+        user = self.db.query(User).filter(User.email == email).first()
+        if not user or user.is_email_verified:
+            return
+
+        verify_token = generate_email_verification_token()
+        user.email_verification_token = verify_token
+        user.email_verification_expires_at = datetime.utcnow() + timedelta(
+            hours=settings.EMAIL_VERIFY_TTL_HOURS
+        )
+        self.db.commit()
+
+        verify_url = f"{settings.BASE_URL}/api/auth/verify-email?token={verify_token}"
+        sent = send_verification_email(user.email, verify_url)
+        if not sent:
+            logger.info(f"[DEV] Verify link (resend) cho {user.email}: {verify_url}")
+
     # ── ĐĂNG NHẬP EMAIL/PASSWORD ──────────────────────────────────────
     def login_with_email(self, email: str, password: str) -> tuple[User, str]:
         """
@@ -153,7 +191,7 @@ class AuthService:
             or not auth_provider.password_hash
             or not verify_password(password, auth_provider.password_hash)
         ):
-            login_tracker.record_failed_attempt(email)
+            login_tracker.record_attempt(email)
             attempts = login_tracker.get_attempts(email)
             logger.warning(
                 f"Login failed (wrong credentials): {email} "

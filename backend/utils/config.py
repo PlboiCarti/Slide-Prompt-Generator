@@ -55,6 +55,19 @@ class Settings(BaseSettings):
     # ── Email verification ─────────────────────────────────────────────
     EMAIL_VERIFY_TTL_HOURS: int = 24
 
+    # ── Resend verification email rate limit ───────────────────────────
+    # Lớp chặn phụ phòng gọi API trực tiếp — frontend đã tự giới hạn bằng
+    # cooldown 120s/lần nên ngưỡng này chỉ cần rộng hơn nhịp đó một chút.
+    MAX_RESEND_ATTEMPTS: int = 5
+    RESEND_LOCKOUT_MINUTES: int = 10
+
+    # ── Verification-status polling rate limit (theo IP) ───────────────
+    # Trang đăng ký poll endpoint này mỗi 3s (~20 req/phút/tab). Đặt ngưỡng
+    # rộng hơn để không chặn user mở nhiều tab, nhưng vẫn chặn được spam
+    # hoặc dò trạng thái verify của nhiều email.
+    MAX_VERIFICATION_STATUS_ATTEMPTS: int = 60
+    VERIFICATION_STATUS_LOCKOUT_MINUTES: int = 1
+
     # ── SMTP (để gửi email verify thật) ────────────────────────────────
     # Để trống = dev mode, chỉ in link ra console (không gửi email)
     # Điền vào để bật gửi email qua SMTP (vd: Gmail dùng App Password)

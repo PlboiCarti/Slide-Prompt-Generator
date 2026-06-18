@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import shutil
+import time
 from pathlib import Path
 from datetime import datetime
 from threading import Thread
@@ -22,14 +23,17 @@ from sqlalchemy.orm import Session
 from database.connection import SessionLocal
 from models.job import Job
 from schemas.prompt import DesignDescription
+from services.content_extractor import extract_content_from_files, normalize_extract_error
 from services.llm_service import (
     assemble_master_prompt,
     fill_slide_contents,
-    generate_design_description,
+    generate_design_bundle,
     generate_slide_structure,
 )
 
 logger = logging.getLogger(__name__)
+
+_JOB_TIMEOUT = 600  # 10 phút — job tự fail nếu chạy quá lâu
 
 
 def run_pipeline_in_thread(job_id: str, payload: dict) -> Thread:
@@ -66,12 +70,16 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
 
     # Mỗi thread mở session riêng — không share session từ request
     db: Session = SessionLocal()
+    _start = time.monotonic()
+
+    def _check_timeout() -> None:
+        if time.monotonic() - _start > _JOB_TIMEOUT:
+            raise TimeoutError(f"Job vượt quá giới hạn {_JOB_TIMEOUT}s")
 
     try:
         _update_job(db, job_id, "PROCESSING")
         logger.info(f"[{job_id[:8]}] PROCESSING | purpose='{purpose[:40]}'")
 
-        from services.content_extractor import extract_content_from_files, normalize_extract_error
         # raw_content la text goc tu form; final_content la ket qua da gop text + file/OCR.
         if file_paths or raw_content.strip():
             try:
@@ -90,16 +98,14 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
             logger.info(f"[{job_id[:8]}] Using description from Phase 1")
         else:
             logger.info(f"[{job_id[:8]}] No description provided — generating automatically")
-            design_description = generate_design_description(
-                purpose=purpose,
-                audience=audience,
-                style=style,
-                layout=primary_layout,
-                color=primary_color,
-                language=language,
+            _check_timeout()
+            design_description = generate_design_bundle(
+                purpose=purpose, audience=audience, style=style,
+                layout=primary_layout, color=primary_color, language=language,
             )
 
         # ── B2: Sinh cấu trúc slide ───────────────────────────────────
+        _check_timeout()
         logger.info(f"[{job_id[:8]}] B2: generating slide structure...")
         slides = generate_slide_structure(
             purpose=purpose,
@@ -111,6 +117,7 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
         )
 
         # ── B3: Ghép content vào từng slide ──────────────────────────
+        _check_timeout()
         if final_content.strip():
             logger.info(f"[{job_id[:8]}] B3: filling slide contents...")
             slides = fill_slide_contents(
@@ -127,7 +134,6 @@ def _run_pipeline(job_id: str, payload: dict) -> None:
             purpose=purpose,
             audience=audience,
             style=style,
-            primary_color=primary_color,
             primary_layout=primary_layout,
             design_description=design_description,
             slides=slides,
