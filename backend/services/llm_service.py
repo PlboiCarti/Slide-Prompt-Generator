@@ -214,7 +214,7 @@ JSON Schema:
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.2,
-                max_output_tokens=600,
+                max_output_tokens=1500,
                 response_mime_type="application/json",
                 thinking_config=types.ThinkingConfig(thinking_budget=1024),
             ),
@@ -306,7 +306,7 @@ JSON Schema:
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.7,
-                max_output_tokens=800,
+                max_output_tokens=1500,
                 response_mime_type="application/json",
                 thinking_config=types.ThinkingConfig(thinking_budget=1024),
             ),
