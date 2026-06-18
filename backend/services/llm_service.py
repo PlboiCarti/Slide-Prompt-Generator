@@ -405,7 +405,7 @@ def fill_slide_contents(
             )
     except Exception:
         # Sau 3 lần retry vẫn lỗi → fallback về content rỗng, không crash job
-        logger.warning("B3 _split_batch thất bại sau retry — tiếp tục với content rỗng")
+        logger.warning("B3 _split_batch thất bại sau retry — tiếp tục với content rỗng", exc_info=True)
         all_contents = [""] * n
 
     # Trả về list[SlideInstruction] mới với content đã điền
@@ -530,9 +530,8 @@ def _summarize_chunk(chunk: str, lang_instr: str) -> str:
     return (resp.text or "").strip()
 
 
-def _recursive_summarize(content: str, language: str, max_len: int = 12_000) -> str:
-    """Tóm tắt content quá dài bằng cách chia chunk."""
-    logger.info(f"Content {len(content)} ký tự — tóm tắt đệ quy")
+def _recursive_summarize(content: str, language: str, max_len: int = 12_000, _depth: int = 0) -> str:
+    logger.info(f"Content {len(content)} ký tự — tóm tắt đệ quy (depth={_depth})")
     lang_instr = "Tóm tắt bằng tiếng Việt." if language == "vi" else "Summarize in English."
     chunks = [content[i:i + 4000] for i in range(0, len(content), 4000)]
 
@@ -545,7 +544,10 @@ def _recursive_summarize(content: str, language: str, max_len: int = 12_000) -> 
 
     combined = "\n\n".join(summaries)
     if len(combined) > max_len:
-        return _recursive_summarize(combined, language, max_len)
+        if _depth >= 4:
+            logger.warning(f"_recursive_summarize đạt depth tối đa — cắt cứng tại {max_len} ký tự")
+            return combined[:max_len]
+        return _recursive_summarize(combined, language, max_len, _depth + 1)
     return combined
 
 
@@ -597,7 +599,7 @@ def _format_color_palette_block(palette: ColorPalette, language: str) -> str:
             f"- Neutrals (màu trung tính): {neutrals_str}\n"
             f"- Hướng dẫn phối màu: {palette.description}\n"
             f"- BẮT BUỘC áp dụng bảng màu này cho TOÀN BỘ slide — "
-            f"- KHÔNG chỉ dùng một màu duy nhất xuyên suốt."
+            f"KHÔNG chỉ dùng một màu duy nhất xuyên suốt."
         )
     return (
         f"- Primary: {palette.primary}\n"
@@ -606,7 +608,7 @@ def _format_color_palette_block(palette: ColorPalette, language: str) -> str:
         f"- Neutrals: {neutrals_str}\n"
         f"- Usage guidance: {palette.description}\n"
         f"- This palette is MANDATORY for ALL slides — "
-        f"- do NOT use a single color throughout."
+        f"do NOT use a single color throughout."
     )
 
 
