@@ -459,7 +459,7 @@ const SwatchTile = memo(function SwatchTile({
       </div>
       <span className="gen-swatch-label">{label}</span>
       <code className="gen-swatch-hex">{value.toUpperCase()}</code>
-      {caption && <span className="gen-swatch-caption">{caption}</span>}
+      {caption && <span className="gen-swatch-desc">{caption}</span>}
     </div>
   )
 })
@@ -486,11 +486,26 @@ const PaletteSwatchGrid = memo(function PaletteSwatchGrid({
         <h3 className="gen-spec-title">Bảng màu</h3>
       </div>
       <div className="gen-swatch-grid">
-        <SwatchTile label="Primary" value={palette.primary} disabled locked caption="Màu chủ đạo" />
-        <SwatchTile label="Secondary" value={palette.secondary} disabled={isRunning} onChange={v => onColorChange('secondary', v)} />
-        <SwatchTile label="Accent" value={palette.accent} disabled={isRunning} onChange={v => onColorChange('accent', v)} />
+        <SwatchTile
+          label="Primary" value={palette.primary} disabled locked
+          caption="Màu chủ đạo — Chiếm 50-60% diện tích, định hình tone nền chính của slide."
+        />
+        <SwatchTile
+          label="Secondary" value={palette.secondary} disabled={isRunning}
+          onChange={v => onColorChange('secondary', v)}
+          caption="Màu phụ — Chiếm 15–20% diện tích, dùng cho các khối lớn, menu hoặc shape bổ trợ."
+        />
+        <SwatchTile
+          label="Accent" value={palette.accent} disabled={isRunning}
+          onChange={v => onColorChange('accent', v)}
+          caption="Màu điểm nhấn — Chiếm 5–10%, dùng cho tiêu đề quan trọng, nút bấm hoặc từ khóa cần thu hút ánh nhìn."
+        />
         {palette.neutrals.map((hex, i) => (
-          <SwatchTile key={i} label={`Neutral ${i + 1}`} value={hex} disabled={isRunning} onChange={v => onNeutralChange(i, v)} />
+          <SwatchTile
+            key={i} label={`Neutral ${i + 1}`} value={hex} disabled={isRunning}
+            onChange={v => onNeutralChange(i, v)}
+            caption="Màu trung tính — Hệ màu bổ túc cho màu chữ, nền phụ và các đường viền chia tách cấu trúc."
+          />
         ))}
       </div>
       <div className="gen-palette-desc-box">

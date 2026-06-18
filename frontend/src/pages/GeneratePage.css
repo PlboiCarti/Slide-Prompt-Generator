@@ -882,7 +882,7 @@
 
 .gen-swatch-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   padding: 0 26px 16px;
 }
@@ -891,11 +891,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 12px 8px 10px;
+  gap: 5px;
+  padding: 14px 12px 12px;
   border-radius: 16px;
   border: 1px solid var(--border-color);
-  background: color-mix(in srgb, var(--bg-surface) 55%, transparent);
+  background: var(--bg-surface-soft);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   cursor: pointer;
@@ -948,7 +948,7 @@
 .gen-swatch-label {
   font-size: 10px;
   font-weight: 750;
-  color: var(--text-secondary);
+  color: var(--text-main);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   text-align: center;
@@ -957,20 +957,21 @@
 .gen-swatch-hex {
   font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
   font-size: 9.5px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   text-align: center;
-  background: color-mix(in srgb, var(--bg-surface-soft) 60%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 55%, transparent);
   padding: 2px 5px;
   border-radius: 4px;
 }
 
-.gen-swatch-caption {
-  font-size: 9.5px;
-  color: var(--text-muted);
-  opacity: 0.65;
+.gen-swatch-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
   text-align: center;
+  margin-top: 2px;
 }
 
 .gen-palette-desc-box {
@@ -1272,6 +1273,25 @@
   font-size: 10px;
   color: var(--text-muted);
   text-transform: uppercase;
+}
+
+/* ── Palette swatch light-mode overrides ── */
+html[data-theme="light"] .gen-swatch-tile {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(0, 0, 0, 0.07);
+}
+
+html[data-theme="light"] .gen-swatch-label {
+  color: #1a1a1a;
+}
+
+html[data-theme="light"] .gen-swatch-hex {
+  color: #3a3a3a;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+html[data-theme="light"] .gen-swatch-desc {
+  color: #3a3a3a;
 }
 
 /* ── Typography light-mode overrides ── */
@@ -1717,7 +1737,7 @@ html[data-theme="light"] .gen-typo-notes:focus {
   }
 
   .gen-swatch-grid {
-    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
