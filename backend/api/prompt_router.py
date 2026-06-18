@@ -268,7 +268,7 @@ async def generate(
     Job chạy async trong background thread — client poll GET /api/jobs/{job_id}.
 
     **Gửi description (từ Phase 1):**
-    Điền cả 5 field desc_* để dùng mô tả user đã chỉnh sửa.
+    Điền cả 6 field desc_* để dùng mô tả user đã chỉnh sửa.
     Để trống hết → pipeline tự sinh description trong background (user không xem/sửa được).
     """
     # Rate limit theo user

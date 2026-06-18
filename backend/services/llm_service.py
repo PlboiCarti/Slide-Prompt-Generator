@@ -69,7 +69,8 @@ def generate_design_description(
 ) -> DesignDescription:
     """
     Phase 1 — Sinh mô tả thiết kế từ form input.
-    Trả về DesignDescription (5 field) để frontend hiển thị cho user chỉnh sửa.
+    Trả về DesignDescription với 4 field do Gemini sinh (tone, key_message_rule, density, visual).
+    typography và color_palette là placeholder rỗng — generate_design_bundle ghi đè ngay sau.
     """
     lang_instr = (
         "Toàn bộ nội dung PHẢI bằng tiếng Việt."
@@ -126,13 +127,15 @@ JSON Schema:
     parsed = _safe_parse(resp.text)
     logger.info("Design description generated")
 
-    _empty_role = TypographyRole(size_pt="", weight="", color="")
     return DesignDescription(
         tone=parsed.get("tone", ""),
         # placeholder — generate_design_bundle sẽ ghi đè typography sau khi generate_typography() xong
         typography=Typography(
             font_family="", font_category="",
-            title=_empty_role, eyebrow=_empty_role, body=_empty_role, supporting=_empty_role,
+            title=TypographyRole(size_pt="", weight="", color=""),
+            eyebrow=TypographyRole(size_pt="", weight="", color=""),
+            body=TypographyRole(size_pt="", weight="", color=""),
+            supporting=TypographyRole(size_pt="", weight="", color=""),
             weights_allowed="",
         ),
         key_message_rule=parsed.get("key_message_rule", ""),
@@ -211,7 +214,7 @@ JSON Schema:
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.2,
-                max_output_tokens=6000,
+                max_output_tokens=600,
                 response_mime_type="application/json",
                 thinking_config=types.ThinkingConfig(thinking_budget=1024),
             ),
@@ -303,7 +306,7 @@ JSON Schema:
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.7,
-                max_output_tokens=6000,
+                max_output_tokens=800,
                 response_mime_type="application/json",
                 thinking_config=types.ThinkingConfig(thinking_budget=1024),
             ),
