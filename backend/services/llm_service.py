@@ -204,7 +204,12 @@ JSON Schema:
         resp = _client.models.generate_content(
             model=settings.llm_model,
             contents=prompt,
-            config=_json_config(temp=0.7, tokens=4000),
+            config=types.GenerateContentConfig(
+                temperature=0.2,
+                max_output_tokens=6000,
+                response_mime_type="application/json",
+                thinking_config=types.ThinkingConfig(thinking_budget=1024),
+            ),
         )
 
     parsed = _safe_parse(resp.text)
@@ -482,13 +487,26 @@ JSON: {{"contents": ["nội dung slide 1", "nội dung slide 2", ...]}}"""
         resp = _client.models.generate_content(
             model=settings.llm_model,
             contents=prompt,
-            config=_json_config(temp=0.2, tokens=6000),
+            config=types.GenerateContentConfig(
+                temperature=0.2,
+                max_output_tokens=6000,
+                response_mime_type="application/json",
+                thinking_config=types.ThinkingConfig(thinking_budget=1024),
+            ),
         )
 
     parsed = _safe_parse(resp.text)
     contents = parsed.get("contents", [])
 
-    # Pad cho đủ độ dài
+    # None hoặc sai kiểu = lỗi cấu trúc từ model → raise để tenacity retry
+    if contents is None or not isinstance(contents, list):
+        raise ValueError(
+            f"B3: 'contents' key missing or wrong type — will retry. "
+            f"Response keys: {list(parsed.keys())}"
+        )
+
+    # list rỗng hoặc toàn chuỗi rỗng = model quyết định không có nội dung liên quan → KHÔNG retry
+    # Pad cho đủ độ dài nếu thiếu phần tử
     while len(contents) < n:
         contents.append("")
     return contents[:n]
