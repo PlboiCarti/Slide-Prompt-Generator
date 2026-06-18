@@ -21,7 +21,7 @@ from google import genai
 from google.genai import types
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from schemas.prompt import ColorPalette, DesignDescription, MasterPromptResult, SlideInstruction
+from schemas.prompt import ColorPalette, DesignDescription, MasterPromptResult, SlideInstruction, Typography, TypographyRole
 from utils.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -97,10 +97,9 @@ def generate_design_description(
 <rules>
     - {lang_instr}
     - tone: Giọng điệu và cảm xúc phù hợp với mục đích + đối tượng (1–2 câu ngắn gọn)
-    - font: Đúng 1 tên font chữ duy nhất — KHÔNG dùng "hoặc", không giải thích, chỉ chọn Font chữ có hỗ trợ {language_type}
     - key_message_rule: Cách trình bày ý chính trên slide (ngắn, súc tích, in đậm, v.v.)
     - density: Mật độ nội dung — số bullet tối đa, tỉ lệ chữ/hình, v.v.
-    - visual: Hướng dẫn visual hierarchy (yếu tố nào được nhấn mạnh/làm nổi bật), loại hình ảnh/icon/biểu đồ phù hợp, và cách bố trí không gian (spacing, căn lề, tỉ lệ vùng nội dung)
+    - visual: Hướng dẫn visual hierarchy (yếu tố nào được nhấn mạnh/làm nổi bật), loại hình ảnh/icon/biểu đồ phù hợp, và cách bố trí không gian (spacing, căn lề, tỉ lệ vùng nội dung). KHÔNG đề cập đến cỡ chữ hay font weight — đã có riêng trong typography.
     - Trả về JSON hợp lệ, KHÔNG markdown code fence
     - QUAN TRỌNG:
         + Trả về JSON hợp lệ tuyệt đối
@@ -112,7 +111,6 @@ def generate_design_description(
 JSON Schema:
 {{
   "tone":             "...",
-  "font":             "...",
   "key_message_rule": "...",
   "density":          "...",
   "visual":           "..."
@@ -128,9 +126,15 @@ JSON Schema:
     parsed = _safe_parse(resp.text)
     logger.info("Design description generated")
 
+    _empty_role = TypographyRole(size_pt="", weight="", color="")
     return DesignDescription(
         tone=parsed.get("tone", ""),
-        font=parsed.get("font", ""),
+        # placeholder — generate_design_bundle sẽ ghi đè typography sau khi generate_typography() xong
+        typography=Typography(
+            font_family="", font_category="",
+            title=_empty_role, eyebrow=_empty_role, body=_empty_role, supporting=_empty_role,
+            weights_allowed="",
+        ),
         key_message_rule=parsed.get("key_message_rule", ""),
         density=parsed.get("density", ""),
         visual=parsed.get("visual", ""),
@@ -187,6 +191,7 @@ def generate_color_palette(
           mỗi màu 15-20%, Neutrals 20-25% còn lại cho nền/văn bản"
         + CẢNH BÁO phong cách: 1-2 điều KHÔNG nên làm để tránh trông rập khuôn/AI-generated,
           ví dụ: "KHÔNG dùng solid color bar/stripe accent ở cạnh slide — trông cliché"
+        + GHI CHÚ: Bảng màu này CHỈ áp dụng cho nền slide, shapes, chart — KHÔNG áp dụng cho màu văn bản (đã xác định riêng trong [TYPOGRAPHY])
     - Tất cả mã hex phải đúng định dạng #RRGGBB (chữ hoa)
     - Trả về JSON hợp lệ, KHÔNG markdown code fence
     - QUAN TRỌNG: mỗi value (trừ neutrals) là string 1 dòng, KHÔNG xuống dòng; description tối đa 80 từ
@@ -224,6 +229,104 @@ JSON Schema:
     )
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
+def generate_typography(
+    purpose: str,
+    audience: str,
+    style: str,
+    language: str,
+    palette: ColorPalette,
+) -> Typography:
+    """
+    Phase 1 — Sinh typography spec (font, sizes, weights, colors).
+    Chạy SAU generate_color_palette() để nhận palette làm context,
+    đảm bảo màu chữ tương phản đủ với màu nền/shape trong palette.
+    """
+    language_type = "Tiếng Việt" if language == "vi" else "English"
+    lang_instr = (
+        "Toàn bộ nội dung PHẢI bằng tiếng Việt."
+        if language == "vi"
+        else "All content MUST be in English."
+    )
+    neutrals_str = ", ".join(palette.neutrals) if palette.neutrals else "không có"
+
+    prompt = f"""
+<task>
+    Bạn là chuyên gia typography cho slide thuyết trình chuyên nghiệp.
+    Đề xuất thông số kiểu chữ phù hợp nhất cho bài thuyết trình dưới đây.
+</task>
+
+<input>
+    Mục đích: {purpose}
+    Đối tượng người xem: {audience}
+    Phong cách thiết kế: {style}
+    Ngôn ngữ: {language}
+</input>
+
+<palette_context>
+    Đây là bảng màu nền/shape đã được chọn — màu chữ PHẢI tương phản rõ với các màu này:
+    - Primary (màu chủ đạo nền/shape): {palette.primary}
+    - Secondary: {palette.secondary}
+    - Accent: {palette.accent}
+    - Neutrals (màu nền slide chính): {neutrals_str}
+</palette_context>
+
+<rules>
+    - {lang_instr}
+    - font_family: 1 tên font duy nhất có hỗ trợ {language_type}
+    - font_category: phân loại font (e.g. "Sans-serif", "Serif", "Display")
+    - title: tiêu đề slide — size lớn, bold, màu tối gần đen (e.g. "32-36pt", "#2C2C33"), extra = ""
+    - eyebrow: kicker/label nhỏ phía trên tiêu đề — size nhỏ, bold, màu nổi bật (có thể lấy cảm hứng từ accent nhưng phải đủ tối để đọc được), letter-spacing
+    - body: thân bài chính — size trung bình, regular, màu tối, line-spacing
+    - supporting: ghi chú/caption — size nhỏ nhất, regular, màu xám nhạt, italic
+    - weights_allowed: chỉ liệt kê 2 weight được phép dùng, format "Regular (400), Bold (700)"
+    - Điều chỉnh font theo phong cách: minimalist→font sạch/neutral, corporate→chuyên nghiệp/rõ ràng, creative→có cá tính, academic→readable/serif
+    - QUAN TRỌNG về màu chữ: title/body PHẢI tối gần đen (lightness < 25%); supporting PHẢI là xám trung tính (lightness 45-65%); KHÔNG dùng màu trùng hoặc gần giống với palette_context ở trên
+    - Trả về JSON hợp lệ, KHÔNG markdown code fence
+    - Mỗi value là string đơn giản, KHÔNG xuống dòng
+</rules>
+
+JSON Schema:
+{{
+  "font_family": "...",
+  "font_category": "...",
+  "title":      {{ "size_pt": "...", "weight": "...", "color": "...", "extra": "" }},
+  "eyebrow":    {{ "size_pt": "...", "weight": "...", "color": "...", "extra": "..." }},
+  "body":       {{ "size_pt": "...", "weight": "...", "color": "...", "extra": "..." }},
+  "supporting": {{ "size_pt": "...", "weight": "...", "color": "...", "extra": "..." }},
+  "weights_allowed": "..."
+}}"""
+
+    with _timed("Phase1 generate_typography"):
+        resp = _client.models.generate_content(
+            model=settings.llm_model,
+            contents=prompt,
+            config=_json_config(temp=0.7, tokens=1000),
+        )
+
+    parsed = _safe_parse(resp.text)
+    logger.info("Typography generated")
+
+    def _role(key: str, defaults: dict) -> TypographyRole:
+        r = parsed.get(key) or {}
+        return TypographyRole(
+            size_pt=r.get("size_pt", defaults["size_pt"]),
+            weight=r.get("weight", defaults["weight"]),
+            color=r.get("color", defaults["color"]),
+            extra=r.get("extra", defaults.get("extra", "")),
+        )
+
+    return Typography(
+        font_family=parsed.get("font_family", "Roboto"),
+        font_category=parsed.get("font_category", "Sans-serif"),
+        title=_role("title",      {"size_pt": "32-36pt",   "weight": "bold",    "color": "#2C2C33"}),
+        eyebrow=_role("eyebrow",  {"size_pt": "11-12pt",   "weight": "bold",    "color": "#EA6666", "extra": "letter-spacing +1.8px"}),
+        body=_role("body",        {"size_pt": "14-15.5pt", "weight": "regular", "color": "#2C2C33", "extra": "line-spacing 1.1-1.15x"}),
+        supporting=_role("supporting", {"size_pt": "11.5-12pt", "weight": "regular", "color": "#8A8A92", "extra": "italic"}),
+        weights_allowed=parsed.get("weights_allowed", "Regular (400), Bold (700)"),
+    )
+
+
 def generate_design_bundle(
     purpose: str,
     audience: str,
@@ -232,7 +335,10 @@ def generate_design_bundle(
     color: str,
     language: str,
 ) -> DesignDescription:
-    """Sync version — dùng cho pipeline_worker (chạy trong thread, không có event loop)."""
+    """
+    Sync version — dùng cho pipeline_worker (chạy trong thread, không có event loop).
+    Luồng: description + palette chạy song song → typography chạy sau (nhận palette làm context).
+    """
     with ThreadPoolExecutor(max_workers=2) as executor:
         desc_future = executor.submit(
             generate_design_description,
@@ -245,6 +351,11 @@ def generate_design_bundle(
         )
         result = desc_future.result(timeout=300)
         result.color_palette = palette_future.result(timeout=300)
+    # Typography chạy sau khi có palette — đảm bảo màu chữ tương phản với màu nền
+    result.typography = generate_typography(
+        purpose=purpose, audience=audience, style=style, language=language,
+        palette=result.color_palette,
+    )
     return result
 
 
@@ -256,7 +367,10 @@ async def generate_design_bundle_async(
     color: str,
     language: str,
 ) -> DesignDescription:
-    """Async version — dùng cho Phase 1 HTTP handler (async def endpoint)."""
+    """
+    Async version — dùng cho Phase 1 HTTP handler (async def endpoint).
+    Luồng: description + palette chạy song song → typography chạy sau (nhận palette làm context).
+    """
     result, palette = await asyncio.gather(
         asyncio.to_thread(
             generate_design_description,
@@ -269,6 +383,12 @@ async def generate_design_bundle_async(
         ),
     )
     result.color_palette = palette
+    # Typography chạy sau khi có palette — đảm bảo màu chữ tương phản với màu nền
+    result.typography = await asyncio.to_thread(
+        generate_typography,
+        purpose=purpose, audience=audience, style=style, language=language,
+        palette=palette,
+    )
     return result
 
 
@@ -551,6 +671,36 @@ def _recursive_summarize(content: str, language: str, max_len: int = 12_000, _de
     return combined
 
 
+def _format_typography_block(t: Typography, language: str) -> str:
+    """Format Typography thành text block cho master prompt."""
+    def _role_line(label: str, r: TypographyRole) -> str:
+        line = f"- {label}: {r.size_pt} | {r.weight} | {r.color}"
+        return line + (f" | {r.extra}" if r.extra else "")
+
+    if language == "vi":
+        warning = "QUAN TRỌNG: Màu typography trên CỐ ĐỊNH cho văn bản — KHÔNG ghi đè bằng màu bảng màu."
+        return "\n".join([
+            f"- Font chính: {t.font_family} ({t.font_category})",
+            _role_line("Tiêu đề slide", t.title),
+            _role_line("Eyebrow/Kicker", t.eyebrow),
+            _role_line("Thân bài (Body)", t.body),
+            _role_line("Hỗ trợ (Italic)", t.supporting),
+            f"- Font weights được phép: {t.weights_allowed}",
+            warning,
+        ])
+    else:
+        warning = "IMPORTANT: Typography colors above are FIXED for text — do NOT override with palette colors."
+        return "\n".join([
+            f"- Primary font: {t.font_family} ({t.font_category})",
+            _role_line("Slide title", t.title),
+            _role_line("Eyebrow/Kicker", t.eyebrow),
+            _role_line("Body text", t.body),
+            _role_line("Supporting (italic)", t.supporting),
+            f"- Allowed font weights: {t.weights_allowed}",
+            warning,
+        ])
+
+
 # ══════════════════════════════════════════════════════════════════════
 # PHASE 2 — B4: assemble_master_prompt
 # ══════════════════════════════════════════════════════════════════════
@@ -642,7 +792,6 @@ def _build_full_master_prompt(
         )
         desc_text = (
             f"Tone: {design_description.tone}\n"
-            f"Font: {design_description.font}\n"
             f"Key Message Rule: {design_description.key_message_rule}\n"
             f"Density: {design_description.density}\n"
             f"Visual: {design_description.visual}"
@@ -660,6 +809,7 @@ def _build_full_master_prompt(
             "task":    "[NHIỆM VỤ]",
             "guide":   "[CHỈ DẪN]",
             "desc":    "[MÔ TẢ THIẾT KẾ]",
+            "typo":    "[CHỮ & KIỂU CHỮ — BẮT BUỘC]",
             "palette": "[BẢNG MÀU — BẮT BUỘC]",
             "format":  "[YÊU CẦU FORMAT OUTPUT]",
             "note":    "[LƯU Ý]",
@@ -683,7 +833,6 @@ def _build_full_master_prompt(
         )
         desc_text = (
             f"Tone: {design_description.tone}\n"
-            f"Font: {design_description.font}\n"
             f"Key Message Rule: {design_description.key_message_rule}\n"
             f"Density: {design_description.density}\n"
             f"Visual: {design_description.visual}"
@@ -702,6 +851,7 @@ def _build_full_master_prompt(
             "task":    "[YOUR TASK]",
             "guide":   "[GUIDELINES]",
             "desc":    "[DESIGN DESCRIPTION]",
+            "typo":    "[TYPOGRAPHY — MANDATORY]",
             "palette": "[COLOR PALETTE — MANDATORY]",
             "format":  "[OUTPUT FORMAT]",
             "note":    "[NOTE]",
@@ -722,6 +872,9 @@ def _build_full_master_prompt(
         "",
         headers["desc"],
         desc_text,
+        "",
+        headers["typo"],
+        _format_typography_block(design_description.typography, language),
         "",
         headers["palette"],
         color_palette,

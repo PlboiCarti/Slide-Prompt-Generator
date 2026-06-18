@@ -19,13 +19,36 @@ class ColorPalette(BaseModel):
     description: str
 
 
+class TypographyRole(BaseModel):
+    """Thông số chữ cho 1 vai trò text (title, eyebrow, body, supporting)."""
+    size_pt: str
+    weight: str
+    color: str
+    extra: str = ""
+
+
+class Typography(BaseModel):
+    """
+    Typography spec cho toàn bộ slide — Phase 1 (Gemini sinh).
+    Độc lập với ColorPalette: palette dùng cho background/shape/chart,
+    typography colors cố định cho text.
+    """
+    font_family: str
+    font_category: str
+    title: TypographyRole
+    eyebrow: TypographyRole
+    body: TypographyRole
+    supporting: TypographyRole
+    weights_allowed: str
+
+
 class DesignDescription(BaseModel):
     """
     Mô tả thiết kế từ Phase 1.
-    Frontend hiển thị thành 5 ô input + 1 bảng màu — user có thể chỉnh sửa từng ô.
+    Frontend hiển thị thành 4 ô input + 1 typography panel + 1 bảng màu — user có thể chỉnh sửa.
     """
     tone: str
-    font: str
+    typography: Typography
     key_message_rule: str
     density: str
     visual: str

@@ -28,9 +28,26 @@ export interface ColorPalette {
   description: string
 }
 
+export interface TypographyRole {
+  size_pt: string
+  weight: string
+  color: string
+  extra?: string
+}
+
+export interface Typography {
+  font_family: string
+  font_category: string
+  title: TypographyRole
+  eyebrow: TypographyRole
+  body: TypographyRole
+  supporting: TypographyRole
+  weights_allowed: string
+}
+
 export interface DesignDescription {
   tone: string
-  font: string
+  typography: Typography
   key_message_rule: string
   density: string
   visual: string
@@ -159,10 +176,10 @@ export const promptAPI = {
         formData.append('files', file)
       })
     }
-    // 5 field description riêng lẻ (tránh lỗi JSON string trong multipart)
+    // 6 field description riêng lẻ (tránh lỗi JSON string trong multipart)
     if (data.description) {
       formData.append('desc_tone', data.description.tone)
-      formData.append('desc_font', data.description.font)
+      formData.append('desc_typography', JSON.stringify(data.description.typography))
       formData.append('desc_key_message_rule', data.description.key_message_rule)
       formData.append('desc_density', data.description.density)
       formData.append('desc_visual', data.description.visual)
