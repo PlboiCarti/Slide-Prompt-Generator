@@ -76,7 +76,7 @@ def verification_status(email: str, request: Request, db: Session = Depends(get_
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Quá nhiều yêu cầu. Vui lòng thử lại sau ít phút.",
         )
-    verification_status_tracker.record_failed_attempt(client_ip)
+    verification_status_tracker.record_attempt(client_ip)
 
     service = AuthService(db)
     return VerificationStatusResponse(verified=service.is_email_verified(email))

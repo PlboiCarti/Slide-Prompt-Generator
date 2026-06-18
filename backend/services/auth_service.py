@@ -136,7 +136,7 @@ class AuthService:
                     f"Vui lòng thử lại sau {settings.RESEND_LOCKOUT_MINUTES} phút."
                 ),
             )
-        resend_tracker.record_failed_attempt(email)
+        resend_tracker.record_attempt(email)
 
         user = self.db.query(User).filter(User.email == email).first()
         if not user or user.is_email_verified:
@@ -191,7 +191,7 @@ class AuthService:
             or not auth_provider.password_hash
             or not verify_password(password, auth_provider.password_hash)
         ):
-            login_tracker.record_failed_attempt(email)
+            login_tracker.record_attempt(email)
             attempts = login_tracker.get_attempts(email)
             logger.warning(
                 f"Login failed (wrong credentials): {email} "
