@@ -16,6 +16,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from core.dependencies import get_current_user
@@ -26,9 +27,9 @@ _settings = _get_settings()
 from models.job import Job
 from models.user import User
 from schemas.jobs import GenerateResponse, JobStatusResponse
-from schemas.prompt import DescribeRequest, DesignDescription
+from schemas.prompt import ColorPalette, DescribeRequest, DesignDescription, Typography
 from services.content_extractor import MAX_FILE_SIZE
-from services.llm_service import generate_design_description
+from services.llm_service import generate_design_bundle, generate_design_bundle_async
 from utils.rate_limiter import generate_tracker
 from workers.pipeline_worker import run_pipeline_in_thread
 
@@ -167,10 +168,11 @@ async def _validate_upload_file(upload: UploadFile) -> str:
 # Tên hiển thị cho từng desc field để thông báo lỗi rõ ràng hơn
 _DESC_FIELD_LABELS = {
     "tone":             "desc_tone (giọng điệu / tông văn bản)",
-    "font":             "desc_font (kiểu chữ / font chữ)",
+    "typography":       "desc_typography (kiểu chữ / typography — JSON)",
     "key_message_rule": "desc_key_message_rule (quy tắc thông điệp chính mỗi slide)",
     "density":          "desc_density (mật độ thông tin trên slide)",
-    "visual":           "desc_visual (yếu tố hình ảnh / màu sắc minh hoạ)",
+    "visual":           "desc_visual (bố cục minh hoạ / visual hierarchy)",
+    "color_palette":    "desc_color_palette (bảng màu)",
 }
 
 # ══════════════════════════════════════════════════════════════════════
@@ -183,7 +185,7 @@ _DESC_FIELD_LABELS = {
     tags=["Prompt Generation"],
     summary="Phase 1 — Phân tích & gợi ý thiết kế",
 )
-def generate_description(
+async def generate_description(
     data: DescribeRequest,
     current_user: User = Depends(get_current_user),):
     """
@@ -203,20 +205,24 @@ def generate_description(
             ),
             headers={"Retry-After": str(retry_after)},
         )
-    generate_tracker.record_failed_attempt(current_user.id)
-        
     logger.info(
         f"Phase1 generate-description | purpose='{data.purpose[:40]}' "
         f"| lang={data.language}"
     )
-    result = generate_design_description(
-        purpose=data.purpose,
-        audience=data.audience,
-        style=data.style,
-        layout=data.primary_layout,
-        color=data.primary_color,
-        language=data.language,
-    )
+    try:
+        result = await generate_design_bundle_async(
+            purpose=data.purpose, audience=data.audience, style=data.style,
+            layout=data.primary_layout, color=data.primary_color, language=data.language,
+        )
+    except Exception as e:
+        logger.error(f"Phase1 generate_design_bundle failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Dịch vụ AI tạm thời không phản hồi. Vui lòng thử lại sau ít phút.",
+        )
+
+    # Trừ slot SAU KHI LLM trả về thành công — tránh hao slot vì lỗi tạm thời phía Gemini
+    generate_tracker.record_attempt(current_user.id)
     logger.info("Phase1 complete")
     return result
 
@@ -249,10 +255,11 @@ async def generate(
     # khi paste JSON string nhiều dòng vào form field.
     # Nếu để trống hết, pipeline tự gọi generate_design_description().
     desc_tone:             str = Form(""),
-    desc_font:             str = Form(""),
+    desc_typography:       str = Form(""),  # JSON-encoded Typography
     desc_key_message_rule: str = Form(""),
     desc_density:          str = Form(""),
     desc_visual:           str = Form(""),
+    desc_color_palette:    str = Form(""),  # JSON-encoded ColorPalette
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -261,7 +268,7 @@ async def generate(
     Job chạy async trong background thread — client poll GET /api/jobs/{job_id}.
 
     **Gửi description (từ Phase 1):**
-    Điền cả 5 field desc_* để dùng mô tả user đã chỉnh sửa.
+    Điền cả 6 field desc_* để dùng mô tả user đã chỉnh sửa.
     Để trống hết → pipeline tự sinh description trong background (user không xem/sửa được).
     """
     # Rate limit theo user
@@ -299,10 +306,11 @@ async def generate(
     description_dict: dict = {}
     desc_fields = {
         "tone":             desc_tone.strip(),
-        "font":             desc_font.strip(),
+        "typography":       desc_typography.strip(),
         "key_message_rule": desc_key_message_rule.strip(),
         "density":          desc_density.strip(),
         "visual":           desc_visual.strip(),
+        "color_palette":    desc_color_palette.strip(),
     }
     if any(desc_fields.values()):
         # User có ý định gửi description → báo lỗi ngay nếu thiếu field
@@ -314,14 +322,42 @@ async def generate(
                 detail=(
                     f"Bạn đã điền một số trường mô tả thiết kế nhưng còn thiếu "
                     f"{len(missing)} trường sau: {', '.join(missing_labels)}. "
-                    f"Vui lòng điền đầy đủ cả 5 trường hoặc để trống tất cả "
+                    f"Vui lòng điền đầy đủ cả 6 trường hoặc để trống tất cả "
                     f"(để hệ thống tự sinh)."
                 ),
             )
         description_dict = desc_fields
 
+        # Validate & chuẩn hoá desc_color_palette (JSON-encoded ColorPalette)
+        try:
+            palette_raw = json.loads(description_dict["color_palette"])
+            palette_obj = ColorPalette(**palette_raw)
+        except (json.JSONDecodeError, TypeError, ValidationError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"{_DESC_FIELD_LABELS['color_palette']} không hợp lệ: "
+                    f"dữ liệu JSON bảng màu không đúng định dạng ({e})."
+                ),
+            )
+        description_dict["color_palette"] = palette_obj.model_dump()
+
+        # Validate & chuẩn hoá desc_typography (JSON-encoded Typography)
+        try:
+            typo_raw = json.loads(description_dict["typography"])
+            typo_obj = Typography(**typo_raw)
+        except (json.JSONDecodeError, TypeError, ValidationError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"{_DESC_FIELD_LABELS['typography']} không hợp lệ: "
+                    f"dữ liệu JSON typography không đúng định dạng ({e})."
+                ),
+            )
+        description_dict["typography"] = typo_obj.model_dump()
+
     # Ghi nhận attempt SAU KHI validate xong — tránh hao slot vì lỗi form
-    generate_tracker.record_failed_attempt(current_user.id)
+    generate_tracker.record_attempt(current_user.id)
 
     # Khởi tạo Job trước để lấy ID (tạm thời để input_payload rỗng hoặc cơ bản)
     job = Job(
@@ -336,14 +372,16 @@ async def generate(
     file_paths = []
 
 
+    temp_dir: Path | None = None
     if has_valid_files:
-        upload_dir = Path(f"uploads/{job_id}")
-        upload_dir.mkdir(parents=True, exist_ok=True)
+        temp_dir = Path(f"uploads/tmp/{uuid4().hex}")
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        final_dir = Path(f"uploads/{job_id}")
         for f, ext in validated_files:
-            file_path = upload_dir / f"{uuid4().hex}{ext}"
-            with open(file_path, "wb") as buffer:
+            filename = f"{uuid4().hex}{ext}"
+            with open(temp_dir / filename, "wb") as buffer:
                 shutil.copyfileobj(f.file, buffer)
-            file_paths.append(str(file_path))
+            file_paths.append(str(final_dir / filename))
 
     # Worker se tao final_content bang cach gop raw_content voi noi dung doc tu file_paths.
     payload = {
@@ -363,6 +401,15 @@ async def generate(
     job.input_payload = json.dumps(payload, ensure_ascii=False)
     db.commit()
     db.refresh(job)
+
+    # Di chuyển files từ temp → final SAU KHI commit thành công
+    if temp_dir is not None:
+        try:
+            temp_dir.rename(Path(f"uploads/{job_id}"))
+        except Exception as e:
+            logger.error("Không thể move temp dir sang final location: %s", e)
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise
 
     logger.info(
         f"Job created: {job_id[:8]} | purpose='{purpose[:40]}' | "
