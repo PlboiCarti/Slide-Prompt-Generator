@@ -1,6 +1,6 @@
 # Quick Start
 
-Hướng dẫn cài đặt và chạy **Prompt Builder** từ đầu, bao gồm cài **Tesseract OCR** và **Poppler** — hai thành phần bắt buộc cho chức năng đọc nội dung từ ảnh và PDF scan.
+Hướng dẫn cài đặt và chạy **Prompt Builder** từ đầu trên Windows, macOS và Linux — bao gồm cài **Tesseract OCR** và **Poppler** (bắt buộc cho OCR PDF/ảnh), và walkthrough từng bước của Builder Console.
 
 ## Mục lục
 
@@ -9,38 +9,44 @@ Hướng dẫn cài đặt và chạy **Prompt Builder** từ đầu, bao gồm 
 - [3. Cài Poppler](#3-cài-poppler)
 - [4. Cấu hình Backend (.env)](#4-cấu-hình-backend-env)
 - [5. Chạy Backend](#5-chạy-backend)
-- [6. Chạy Frontend](#6-chạy-frontend)
-- [7. Kiểm tra OCR hoạt động](#7-kiểm-tra-ocr-hoạt-động)
-- [8. Lỗi thường gặp](#8-lỗi-thường-gặp)
+- [6. Cấu hình Frontend (.env)](#6-cấu-hình-frontend-env)
+- [7. Chạy Frontend](#7-chạy-frontend)
+- [8. Walkthrough Builder Console (4 bước UI)](#8-walkthrough-builder-console-4-bước-ui)
+- [9. Kiểm tra OCR hoạt động](#9-kiểm-tra-ocr-hoạt-động)
+- [10. Lỗi thường gặp](#10-lỗi-thường-gặp)
+
+---
 
 ## 1. Yêu cầu hệ thống
 
-| Thành phần | Phiên bản |
+| Thành phần | Phiên bản tối thiểu |
 |---|---|
 | Python | 3.11+ |
 | Node.js | 18+ |
 | Tesseract OCR | mới nhất, kèm gói ngôn ngữ `vie` + `eng` |
 | Poppler | mới nhất (cung cấp `pdftoppm`, `pdfinfo`) |
 
-Tesseract dùng để OCR ảnh/PDF scan; Poppler dùng để chuyển từng trang PDF scan thành ảnh trước khi OCR (qua `pdf2image`). Thiếu 1 trong 2 thì việc upload PDF/ảnh vẫn nhận file nhưng sẽ báo lỗi khi trích xuất nội dung.
+Tesseract OCR chạy ảnh/PDF scan qua mạng thần kinh; Poppler chuyển từng trang PDF thành ảnh trước khi Tesseract xử lý (qua `pdf2image`). Thiếu một trong hai thì upload file vẫn nhận nhưng trích xuất nội dung sẽ thất bại.
+
+---
 
 ## 2. Cài Tesseract OCR
 
 ### Windows
 
-1. Tải installer từ trang build cho Windows: https://github.com/UB-Mannheim/tesseract/wiki
-2. Khi cài, ở bước **Additional language data (download)**, tick thêm **Vietnamese** (gói `eng` đã có sẵn mặc định).
-3. Ghi nhớ đường dẫn cài đặt, mặc định là:
+1. Tải installer từ: https://github.com/UB-Mannheim/tesseract/wiki
+2. Trong bước **Additional language data (download)**, tick thêm **Vietnamese** (`vie`). Gói `eng` có sẵn mặc định.
+3. Mặc định sẽ cài vào:
    ```
    C:\Program Files\Tesseract-OCR\tesseract.exe
    ```
-4. Đường dẫn này sẽ dùng cho biến `TESSERACT_CMD` trong file `.env` (xem mục 4).
+4. Nếu KHÔNG thêm đường dẫn này vào PATH, điền vào `TESSERACT_CMD` trong `.env` (xem mục 4).
 
 ### macOS
 
 ```bash
 brew install tesseract
-brew install tesseract-lang   # cài đầy đủ gói ngôn ngữ, gồm vie + eng
+brew install tesseract-lang   # gồm đầy đủ vie + eng
 ```
 
 ### Ubuntu / Debian
@@ -50,26 +56,26 @@ sudo apt update
 sudo apt install tesseract-ocr tesseract-ocr-eng tesseract-ocr-vie
 ```
 
-### Kiểm tra cài đặt
+### Kiểm tra
 
 ```bash
 tesseract --version
-tesseract --list-langs
+tesseract --list-langs        # phải có cả eng và vie
 ```
 
-Lệnh `--list-langs` phải hiển thị cả `eng` và `vie`. Nếu thiếu `vie`, cài lại và nhớ chọn thêm gói ngôn ngữ Tiếng Việt.
+---
 
 ## 3. Cài Poppler
 
 ### Windows
 
-1. Tải bản build cho Windows tại: https://github.com/oschwartz10612/poppler-windows/releases
-2. Giải nén vào một thư mục cố định, ví dụ `C:\poppler`.
-3. Bên trong có thư mục `Library\bin` chứa `pdftoppm.exe`, `pdfinfo.exe`... ví dụ:
+1. Tải bản build tại: https://github.com/oschwartz10612/poppler-windows/releases
+2. Giải nén vào thư mục cố định, ví dụ `C:\poppler`.
+3. Thư mục chứa `pdftoppm.exe` thường là:
    ```
    C:\poppler\Library\bin
    ```
-4. Đường dẫn này dùng cho biến `POPPLER_PATH` trong `.env` (xem mục 4).
+4. Nếu KHÔNG thêm vào PATH, điền vào `POPPLER_PATH` trong `.env` (xem mục 4).
 
 ### macOS
 
@@ -83,18 +89,16 @@ brew install poppler
 sudo apt install poppler-utils
 ```
 
-### Kiểm tra cài đặt
+### Kiểm tra
 
 ```bash
 pdftoppm -v
 pdfinfo -v
 ```
 
-Nếu 2 lệnh trên chạy được (in ra version) là Poppler đã sẵn sàng.
+---
 
 ## 4. Cấu hình Backend (.env)
-
-Copy file mẫu rồi điền giá trị cho phù hợp:
 
 ```bash
 cd backend
@@ -102,25 +106,24 @@ cp .env.example .env           # macOS/Linux
 # copy .env.example .env       # Windows (cmd)
 ```
 
-Toàn bộ biến môi trường và mô tả chi tiết đã có sẵn trong `backend/.env.example` (kèm comment giải thích) và trong [readme.md → Cấu hình môi trường](./readme.md#cấu-hình-môi-trường). Tối thiểu cần điền `gemini_api_key` để chức năng sinh prompt hoạt động.
-
-Riêng cho OCR — phần liên quan trực tiếp đến hướng dẫn này — `.env.example` có 2 biến cuối:
+Mở `backend/.env` và điền ít nhất các biến sau:
 
 ```dotenv
-# OCR — CHỈ cần khai báo nếu Tesseract/Poppler KHÔNG nằm trong PATH
-# (thường gặp trên Windows). Để trống nếu đã thêm vào PATH hoặc dùng Linux/Docker.
-TESSERACT_CMD=
-POPPLER_PATH=
-```
+# Bắt buộc
+GEMINI_API_KEY=your_gemini_api_key_here
 
-Nếu bạn cài Tesseract/Poppler trên Windows theo mục 2 và 3 ở trên và KHÔNG thêm vào PATH, điền 2 đường dẫn đã ghi nhớ ở trên vào đây, ví dụ:
-
-```dotenv
+# Đường dẫn OCR — chỉ cần trên Windows nếu không thêm vào PATH
 TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
 POPPLER_PATH=C:\poppler\Library\bin
 ```
 
-> Trên macOS/Linux nếu cài qua Homebrew/apt, Tesseract và Poppler thường đã nằm trong `PATH` — có thể để `TESSERACT_CMD` và `POPPLER_PATH` trống.
+Để trống `TESSERACT_CMD` và `POPPLER_PATH` nếu đã thêm vào PATH hoặc đang dùng macOS/Linux với Homebrew/apt.
+
+Để trống `SMTP_USER` / `SMTP_PASSWORD` trong dev — link xác thực email sẽ được in ra console uvicorn thay vì gửi qua mail.
+
+Toàn bộ biến môi trường và giá trị mặc định: xem `backend/.env.example` và `backend/utils/config.py`.
+
+---
 
 ## 5. Chạy Backend
 
@@ -129,46 +132,163 @@ cd backend
 
 # Tạo và kích hoạt virtual environment
 python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS/Linux
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # macOS/Linux
 
 # Cài dependencies
 pip install -r requirements.txt
 
-# Chạy server
+# Khởi động
 uvicorn main:app --reload
 ```
 
-- API: http://localhost:8000
-- Swagger docs: http://localhost:8000/docs
+- API: `http://localhost:8000`
+- Swagger UI: `http://localhost:8000/docs`
 
-## 6. Chạy Frontend
+Khi server khởi động thành công sẽ thấy log `Application startup complete.` và tự động tạo file `database.db` (SQLite mặc định) nếu chưa có.
+
+---
+
+## 6. Cấu hình Frontend (.env)
+
+```bash
+cd frontend
+cp .env.example .env           # macOS/Linux
+# copy .env.example .env       # Windows (cmd)
+```
+
+File `.env.example` đã có sẵn `VITE_API_URL=http://localhost:8000/api`. Không cần chỉnh khi chạy local — Vite cũng proxy `/api` → `http://localhost:8000` qua `vite.config.ts`.
+
+---
+
+## 7. Chạy Frontend
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env           # macOS/Linux — copy .env.example .env trên Windows (cmd)
 npm run dev
 ```
 
-- App: http://localhost:3000
+- App: `http://localhost:3000`
 
-Vite proxy sẵn `/api` → `http://localhost:8000` (xem `frontend/vite.config.ts`), và `frontend/.env.example` đã có `VITE_API_URL=http://localhost:8000/api` mặc định — không cần chỉnh thêm khi chạy local.
+Để kiểm tra TypeScript và build production:
 
-## 7. Kiểm tra OCR hoạt động
+```bash
+npm run build    # tsc (strict mode) + vite build → dist/
+npm run preview  # preview bản build tại http://localhost:4173
+```
 
-1. Mở http://localhost:3000, đăng ký/đăng nhập, vào trang **Tạo Master Prompt**.
-2. Ở bước nhập nội dung, upload một file ảnh (PNG/JPG) hoặc PDF scan có chữ.
-3. Tạo prompt và theo dõi log backend (terminal chạy `uvicorn`):
-   - Thấy log `Processing Image: ...` hoặc `Processing PDF: ...` rồi `... ký tự từ '...'` → OCR đã chạy và đọc được chữ.
-   - Nếu báo lỗi liên quan Tesseract/Poppler, xem mục [8. Lỗi thường gặp](#8-lỗi-thường-gặp).
+---
 
-## 8. Lỗi thường gặp
+## 8. Walkthrough Builder Console (4 bước UI)
+
+Sau khi đăng ký / đăng nhập, vào trang **Tạo Master Prompt** (`/generate`). Trang chia thành 4 bước rõ ràng:
+
+---
+
+### Bước 1 — Project Brief (Nội dung bài thuyết trình)
+
+Điền 6 trường định hướng thiết kế:
+
+| Trường | Mô tả | Ghi chú |
+|---|---|---|
+| **Mục đích** (`purpose`) | Mục tiêu bài trình bày | Tối thiểu 3 ký tự để kích hoạt Phase 1 và lưu draft |
+| **Đối tượng** (`audience`) | Người nghe mục tiêu | Tối thiểu 3 ký tự |
+| **Phong cách** (`style`) | Chọn 1 trong 9 preset card hoặc nhập tự do | Thay đổi style/layout/color → xóa Design Direction cũ để buộc chạy lại Phase 1 |
+| **Bố cục** (`primary_layout`) | Chọn 1 trong 9 preset layout card | |
+| **Màu chủ đạo** (`primary_color`) | Color picker + 5 preset màu | |
+| **Số lượng slide** (`slide_count`) | Thanh kéo 6–30, preset: 8/10/15/20 | |
+
+Nhấn **"Phân tích Định hướng Thiết kế"** để gửi `POST /api/generate-description`.
+
+---
+
+### Bước 2 — AI Design Direction (Xem và chỉnh thiết kế)
+
+Sau khi Phase 1 hoàn tất (~3–5 giây), Spec Sheet hiện ra với 3 phần có thể chỉnh trực tiếp:
+
+**Color Palette (Bảng màu):**
+- Grid 3×2 gồm 6 swatch: **Primary** (khóa, chỉ đọc), **Secondary**, **Accent**, **Neutral 1/2/3** (có thể đổi màu bằng color picker ẩn sau circle).
+- Mỗi swatch hiển thị hex code, tên vai trò và mô tả chức năng sử dụng (tỉ lệ diện tích khuyến nghị).
+- Text contrast tự động flip sang dark/light tùy theme qua CSS custom properties.
+
+**Typography Spec Sheet (Kiểu chữ):**
+- 3 trường meta: **Font Family**, **Font Category**, **Weights Allowed**.
+- 4 role card: **Tiêu đề slide**, **Eyebrow / Kicker**, **Thân bài (Body)**, **Hỗ trợ (Italic)**.
+- Mỗi card có: preview "Aa" (weight phản ánh đúng giá trị), Size (pt), Weight, Màu chữ (swatch inline), Ghi chú (textarea full-width có thể mở rộng).
+- Focus-within card → glow cyan.
+
+**AI Design Direction (4 thẻ):**
+- **Giọng điệu** (`tone`), **Quy tắc thông điệp** (`key_message_rule`), **Mật độ** (`density`), **Hướng dẫn hình ảnh** (`visual`) — mỗi thẻ là glassmorphic card với textarea tự do.
+- Gõ vào direction cards **không làm re-render** Palette hoặc Typography (memo isolation).
+
+---
+
+### Bước 3 — Source Content (Nội dung nguồn)
+
+| Input | Mô tả |
+|---|---|
+| **Nội dung văn bản** | Textarea lớn — gõ hoặc paste nội dung thô. Typing không trigger re-render toàn trang (decoupled via `contentLocal` + `contentLatestRef`). `Ctrl/Cmd+Enter` submit. |
+| **Upload file** | Kéo thả hoặc chọn file PDF/PNG/JPG/JPEG/WEBP, tối đa 10 MB/file, nhiều file. |
+
+Phải có ít nhất một trong hai (văn bản hoặc file) trước khi submit Phase 2.
+
+---
+
+### Bước 4 — Generate & Result
+
+Nhấn **"Tạo Master Prompt"** → `POST /api/generate` → frontend bắt đầu poll `GET /api/jobs/{job_id}` mỗi **2 giây**.
+
+Progress bar và status label cập nhật theo:
+
+| Status | Hiển thị |
+|---|---|
+| `PENDING` | Đang chuẩn bị... |
+| `PROCESSING` | AI đang phân tích nội dung và tạo cấu trúc slide... |
+| `COMPLETED` | Hoàn tất — trang tự scroll đến kết quả |
+| `FAILED` | Hiển thị error message từ backend |
+
+Khi `COMPLETED`:
+- Nút **"Sao chép"** copy `full_master_prompt` vào clipboard (fallback `execCommand` cho môi trường không hỗ trợ Clipboard API).
+- Prompt được lưu tự động vào lịch sử.
+- Nút **"Tạo mới"** reset toàn bộ job state, giữ nguyên form.
+
+---
+
+### Draft
+
+Bất kỳ lúc nào (kể cả trước Phase 1 và sau Phase 2), nhấn **"Lưu thành bản nháp"** để lưu toàn bộ trạng thái hiện tại:
+
+```
+Lần đầu  →  POST /api/drafts   →  nhận draft ID, lưu vào state
+Lần sau  →  PUT  /api/drafts/{id}  →  cập nhật bản nháp cũ
+```
+
+Mở lại draft từ **Lịch sử** → toàn bộ form, file list (tên), Design Direction và draft ID được hydrate lại qua `location.state`.
+
+---
+
+## 9. Kiểm tra OCR hoạt động
+
+1. Đăng nhập, vào **Tạo Master Prompt**.
+2. Ở Bước 3, upload một ảnh PNG/JPG hoặc PDF scan có chữ Tiếng Việt.
+3. Submit Phase 2, theo dõi log `uvicorn`:
+   - `Processing Image: ...` hoặc `Processing PDF: ...` → đang OCR.
+   - `... ký tự từ '...'` → OCR thành công và đọc được chữ.
+   - Lỗi liên quan Tesseract/Poppler → xem mục 10.
+
+---
+
+## 10. Lỗi thường gặp
 
 | Thông báo lỗi | Nguyên nhân | Cách xử lý |
 |---|---|---|
-| `tesseract is not installed or it's not in your PATH` | Chưa cài Tesseract hoặc chưa thêm vào PATH | Cài lại theo mục 2, hoặc set `TESSERACT_CMD` trong `.env` đúng đường dẫn `tesseract.exe` |
-| `Unable to get page count. Is poppler installed and in PATH?` | Chưa cài Poppler hoặc chưa thêm vào PATH | Cài lại theo mục 3, hoặc set `POPPLER_PATH` trong `.env` đúng thư mục `bin` của Poppler |
-| OCR chạy được nhưng không nhận chữ Tiếng Việt (ra ký tự lỗi) | Thiếu gói ngôn ngữ `vie` cho Tesseract | Cài thêm gói `tesseract-ocr-vie` (Linux) hoặc tick lại Vietnamese khi cài trên Windows (mục 2) |
-| Upload file báo "File không đúng định dạng cho phép" | File không phải PDF/PNG/JPG/JPEG/WEBP, hoặc nội dung file không khớp đuôi file | Đổi sang đúng định dạng được hỗ trợ |
-| Upload file báo vượt giới hạn dung lượng | File > 10MB | Dùng file nhỏ hơn 10MB |
+| `tesseract is not installed or it's not in your PATH` | Tesseract chưa cài hoặc chưa có trong PATH | Cài theo mục 2; hoặc set `TESSERACT_CMD` trong `.env` đúng đường dẫn `tesseract.exe` |
+| `Unable to get page count. Is poppler installed and in PATH?` | Poppler chưa cài hoặc chưa có trong PATH | Cài theo mục 3; hoặc set `POPPLER_PATH` trong `.env` đúng thư mục `bin` của Poppler |
+| OCR chạy nhưng ra ký tự lỗi / không nhận Tiếng Việt | Thiếu gói ngôn ngữ `vie` | Cài thêm `tesseract-ocr-vie` (Linux) hoặc tick Vietnamese khi cài trên Windows (mục 2) |
+| `File không đúng định dạng cho phép` | Không phải PDF/PNG/JPG/JPEG/WEBP, hoặc nội dung file không khớp extension | Đổi sang đúng định dạng được hỗ trợ |
+| `File vượt quá giới hạn dung lượng` | File > 10 MB | Dùng file nhỏ hơn 10 MB |
+| `Vui lòng điền đầy đủ Mục đích và Đối tượng` | Hai trường bắt buộc còn trống | Điền cả hai trước khi nhấn "Phân tích Định hướng Thiết kế" |
+| `Cần nhập mục đích và đối tượng trước khi lưu Draft` | Draft yêu cầu tối thiểu 3 ký tự ở mỗi trường | Điền brief trước khi lưu |
+| Lỗi rate limit khi tạo prompt | Đã vượt `MAX_GENERATE_ATTEMPTS` trong `GENERATE_LOCKOUT_MINUTES` phút | Đợi hết lockout (Phase 1 và Phase 2 dùng chung bộ đếm) |
+| Server khởi động báo `JWT_SECRET_KEY` | `ENVIRONMENT=production` nhưng key vẫn là `dev_only_*` | Tạo key ngẫu nhiên: `python -c "import secrets; print(secrets.token_hex(32))"` và điền vào `.env` |
