@@ -301,7 +301,12 @@ JSON Schema:
         resp = _client.models.generate_content(
             model=settings.llm_model,
             contents=prompt,
-            config=_json_config(temp=0.7, tokens=1000),
+            config=types.GenerateContentConfig(
+                temperature=0.7,
+                max_output_tokens=6000,
+                response_mime_type="application/json",
+                thinking_config=types.ThinkingConfig(thinking_budget=1024),
+            ),
         )
 
     parsed = _safe_parse(resp.text)
@@ -670,6 +675,28 @@ def _recursive_summarize(content: str, language: str, max_len: int = 12_000, _de
         return _recursive_summarize(combined, language, max_len, _depth + 1)
     return combined
 
+def _format_color_palette_block(palette: ColorPalette, language: str) -> str:
+    """Format ColorPalette thành text block cho master prompt (self-contained)."""
+    neutrals_str = ", ".join(palette.neutrals) if palette.neutrals else "—"
+    if language == "vi":
+        return (
+            f"- Primary (màu chủ đạo): {palette.primary}\n"
+            f"- Secondary (màu phụ): {palette.secondary}\n"
+            f"- Accent (màu nhấn): {palette.accent}\n"
+            f"- Neutrals (màu trung tính): {neutrals_str}\n"
+            f"- Hướng dẫn phối màu: {palette.description}\n"
+            f"- BẮT BUỘC áp dụng bảng màu này cho TOÀN BỘ slide — "
+            f"KHÔNG chỉ dùng một màu duy nhất xuyên suốt."
+        )
+    return (
+        f"- Primary: {palette.primary}\n"
+        f"- Secondary: {palette.secondary}\n"
+        f"- Accent: {palette.accent}\n"
+        f"- Neutrals: {neutrals_str}\n"
+        f"- Usage guidance: {palette.description}\n"
+        f"- This palette is MANDATORY for ALL slides — "
+        f"do NOT use a single color throughout."
+    )
 
 def _format_typography_block(t: Typography, language: str) -> str:
     """Format Typography thành text block cho master prompt."""
@@ -737,31 +764,6 @@ def assemble_master_prompt(
         full_master_prompt=full,
     )
 
-
-def _format_color_palette_block(palette: ColorPalette, language: str) -> str:
-    """Format ColorPalette thành text block cho master prompt (self-contained)."""
-    neutrals_str = ", ".join(palette.neutrals) if palette.neutrals else "—"
-    if language == "vi":
-        return (
-            f"- Primary (màu chủ đạo): {palette.primary}\n"
-            f"- Secondary (màu phụ): {palette.secondary}\n"
-            f"- Accent (màu nhấn): {palette.accent}\n"
-            f"- Neutrals (màu trung tính): {neutrals_str}\n"
-            f"- Hướng dẫn phối màu: {palette.description}\n"
-            f"- BẮT BUỘC áp dụng bảng màu này cho TOÀN BỘ slide — "
-            f"KHÔNG chỉ dùng một màu duy nhất xuyên suốt."
-        )
-    return (
-        f"- Primary: {palette.primary}\n"
-        f"- Secondary: {palette.secondary}\n"
-        f"- Accent: {palette.accent}\n"
-        f"- Neutrals: {neutrals_str}\n"
-        f"- Usage guidance: {palette.description}\n"
-        f"- This palette is MANDATORY for ALL slides — "
-        f"do NOT use a single color throughout."
-    )
-
-
 def _build_full_master_prompt(
     purpose: str,
     audience: str,
@@ -775,6 +777,7 @@ def _build_full_master_prompt(
     n = len(slides)
 
     color_palette = _format_color_palette_block(design_description.color_palette, language)
+    typography = _format_typography_block(design_description.typography, language)
 
     if language == "vi":
         role_text = (
@@ -873,11 +876,11 @@ def _build_full_master_prompt(
         headers["desc"],
         desc_text,
         "",
-        headers["typo"],
-        _format_typography_block(design_description.typography, language),
-        "",
         headers["palette"],
         color_palette,
+        "",
+        headers["typo"],
+        typography,
         "",
         headers["note"],
         note_text,
