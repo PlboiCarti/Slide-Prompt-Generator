@@ -358,14 +358,16 @@ async def generate(
     file_paths = []
 
 
+    temp_dir: Path | None = None
     if has_valid_files:
-        upload_dir = Path(f"uploads/{job_id}")
-        upload_dir.mkdir(parents=True, exist_ok=True)
+        temp_dir = Path(f"uploads/tmp/{uuid4().hex}")
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        final_dir = Path(f"uploads/{job_id}")
         for f, ext in validated_files:
-            file_path = upload_dir / f"{uuid4().hex}{ext}"
-            with open(file_path, "wb") as buffer:
+            filename = f"{uuid4().hex}{ext}"
+            with open(temp_dir / filename, "wb") as buffer:
                 shutil.copyfileobj(f.file, buffer)
-            file_paths.append(str(file_path))
+            file_paths.append(str(final_dir / filename))
 
     # Worker se tao final_content bang cach gop raw_content voi noi dung doc tu file_paths.
     payload = {
@@ -385,6 +387,15 @@ async def generate(
     job.input_payload = json.dumps(payload, ensure_ascii=False)
     db.commit()
     db.refresh(job)
+
+    # Di chuyển files từ temp → final SAU KHI commit thành công
+    if temp_dir is not None:
+        try:
+            temp_dir.rename(Path(f"uploads/{job_id}"))
+        except Exception as e:
+            logger.error("Không thể move temp dir sang final location: %s", e)
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise
 
     logger.info(
         f"Job created: {job_id[:8]} | purpose='{purpose[:40]}' | "
