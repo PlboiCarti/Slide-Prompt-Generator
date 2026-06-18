@@ -205,8 +205,6 @@ async def generate_description(
             ),
             headers={"Retry-After": str(retry_after)},
         )
-    generate_tracker.record_attempt(current_user.id)
-        
     logger.info(
         f"Phase1 generate-description | purpose='{data.purpose[:40]}' "
         f"| lang={data.language}"
@@ -223,6 +221,8 @@ async def generate_description(
             detail="Dịch vụ AI tạm thời không phản hồi. Vui lòng thử lại sau ít phút.",
         )
 
+    # Trừ slot SAU KHI LLM trả về thành công — tránh hao slot vì lỗi tạm thời phía Gemini
+    generate_tracker.record_attempt(current_user.id)
     logger.info("Phase1 complete")
     return result
 
