@@ -36,6 +36,9 @@ async def lifespan(app: FastAPI):
     deleted_upload_dirs = cleanup_uploads_dir(ttl_hours=24)
     if deleted_upload_dirs:
         logger.info("Deleted %s stale upload directories", deleted_upload_dirs)
+    deleted_tmp_dirs = cleanup_uploads_dir(ttl_hours=1, uploads_dir="uploads/tmp")
+    if deleted_tmp_dirs:
+        logger.info("Deleted %s stale temp upload directories", deleted_tmp_dirs)
 
     yield
 
