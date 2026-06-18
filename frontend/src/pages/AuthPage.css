@@ -373,6 +373,22 @@
   box-shadow: none;
 }
 
+.btn-text {
+  width: 100%;
+  padding: 8px;
+  margin-top: 8px;
+  background: none;
+  border: none;
+  color: #667eea;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-text:hover {
+  text-decoration: underline;
+}
+
 .divider {
   display: flex;
   align-items: center;

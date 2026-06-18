@@ -10,25 +10,6 @@ const api: AxiosInstance = axios.create({
   },
 })
 
-// Tự gắn Bearer token từ localStorage (cho login email/password)
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('access_token')
-    }
-    return Promise.reject(error)
-  }
-)
-
 export interface LoginPayload {
   email: string
   password: string
@@ -39,12 +20,38 @@ export interface RegisterPayload {
   password: string
 }
 
+export interface ColorPalette {
+  primary: string
+  secondary: string
+  accent: string
+  neutrals: string[]
+  description: string
+}
+
+export interface TypographyRole {
+  size_pt: string
+  weight: string
+  color: string
+  extra?: string
+}
+
+export interface Typography {
+  font_family: string
+  font_category: string
+  title: TypographyRole
+  eyebrow: TypographyRole
+  body: TypographyRole
+  supporting: TypographyRole
+  weights_allowed: string
+}
+
 export interface DesignDescription {
   tone: string
-  font: string
+  typography: Typography
   key_message_rule: string
   density: string
   visual: string
+  color_palette: ColorPalette
 }
 
 export interface DescribePayload {
@@ -127,10 +134,22 @@ export interface SaveDraftPayload {
   description?: DesignDescription | null
 }
 
+export interface VerificationStatusResponse {
+  verified: boolean
+}
+
+export interface MessageResponse {
+  message: string
+}
+
 export const authAPI = {
   register: (data: RegisterPayload) => api.post('/auth/register', data),
   login: (data: LoginPayload) => api.post('/auth/login', data),
   verifyEmail: (token: string) => api.get(`/auth/verify-email?token=${token}`),
+  getVerificationStatus: (email: string) =>
+    api.get<VerificationStatusResponse>('/auth/verification-status', { params: { email } }),
+  resendVerification: (email: string) =>
+    api.post<MessageResponse>('/auth/resend-verification', { email }),
   getMe: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
   googleLoginUrl: () => `${API_URL}/auth/google`,
@@ -157,13 +176,14 @@ export const promptAPI = {
         formData.append('files', file)
       })
     }
-    // 5 field description riêng lẻ (tránh lỗi JSON string trong multipart)
+    // 6 field description riêng lẻ (tránh lỗi JSON string trong multipart)
     if (data.description) {
       formData.append('desc_tone', data.description.tone)
-      formData.append('desc_font', data.description.font)
+      formData.append('desc_typography', JSON.stringify(data.description.typography))
       formData.append('desc_key_message_rule', data.description.key_message_rule)
       formData.append('desc_density', data.description.density)
       formData.append('desc_visual', data.description.visual)
+      formData.append('desc_color_palette', JSON.stringify(data.description.color_palette))
     }
     return api.post('/generate', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },

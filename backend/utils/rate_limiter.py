@@ -25,7 +25,7 @@ class LoginAttemptTracker:
         self._attempts: dict[str, list[datetime]] = {}
         self._lock = Lock()
 
-    def record_failed_attempt(self, key: str) -> None:
+    def record_attempt(self, key: str) -> None:
         """Ghi nhận 1 lần thử."""
         with self._lock:
             now = datetime.utcnow()
@@ -82,4 +82,14 @@ login_tracker = LoginAttemptTracker(
 generate_tracker = LoginAttemptTracker(
     max_attempts=settings.MAX_GENERATE_ATTEMPTS,
     lockout_minutes=settings.GENERATE_LOCKOUT_MINUTES,
+)
+
+resend_tracker = LoginAttemptTracker(
+    max_attempts=settings.MAX_RESEND_ATTEMPTS,
+    lockout_minutes=settings.RESEND_LOCKOUT_MINUTES,
+)
+
+verification_status_tracker = LoginAttemptTracker(
+    max_attempts=settings.MAX_VERIFICATION_STATUS_ATTEMPTS,
+    lockout_minutes=settings.VERIFICATION_STATUS_LOCKOUT_MINUTES,
 )

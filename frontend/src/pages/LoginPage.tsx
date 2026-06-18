@@ -17,6 +17,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [successBanner, setSuccessBanner] = useState('')
+  const [showVerifiedSuccess, setShowVerifiedSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -33,7 +34,9 @@ export function LoginPage() {
     const verifyMsg = searchParams.get('msg')
 
     if (verified === 'success') {
-      setSuccessBanner('Xác thực email thành công. Vui lòng đăng nhập.')
+      // Tab vừa mở từ link verify trong email, hoặc tab đăng ký vừa tự
+      // chuyển tới đây sau khi polling phát hiện email đã verify.
+      setShowVerifiedSuccess(true)
     } else if (verified === 'error') {
       setError(verifyMsg || 'Xác thực email thất bại. Link có thể đã hết hạn.')
     } else if (errorMsg) {
@@ -65,6 +68,30 @@ export function LoginPage() {
   // Hard redirect thay vì navigate() — OAuth cần browser rời khỏi SPA để đến Google.
   const handleGoogleLogin = () => {
     window.location.href = authAPI.googleLoginUrl()
+  }
+
+  // Tab vừa xác thực email xong (mở từ link trong email) → hiện màn xác nhận
+  if (showVerifiedSuccess) {
+    return (
+      <div className="auth-container">
+        <div className="auth-card auth-card-center">
+          <div className="auth-icon-success">✓</div>
+          <h1>Đăng ký thành công!</h1>
+          <p className="auth-card-text">
+            Email của bạn đã được xác thực. Tài khoản đã sẵn sàng sử dụng.
+          </p>
+          <button
+            onClick={() => {
+              setShowVerifiedSuccess(false)
+              setSuccessBanner('Vui lòng đăng nhập để tiếp tục.')
+            }}
+            className="btn-primary"
+          >
+            Quay về đăng nhập
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
