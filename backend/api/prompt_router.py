@@ -27,7 +27,7 @@ _settings = _get_settings()
 from models.job import Job
 from models.user import User
 from schemas.jobs import GenerateResponse, JobStatusResponse
-from schemas.prompt import ColorPalette, DescribeRequest, DesignDescription
+from schemas.prompt import ColorPalette, DescribeRequest, DesignDescription, Typography
 from services.content_extractor import MAX_FILE_SIZE
 from services.llm_service import generate_design_bundle, generate_design_bundle_async
 from utils.rate_limiter import generate_tracker
@@ -168,7 +168,7 @@ async def _validate_upload_file(upload: UploadFile) -> str:
 # Tên hiển thị cho từng desc field để thông báo lỗi rõ ràng hơn
 _DESC_FIELD_LABELS = {
     "tone":             "desc_tone (giọng điệu / tông văn bản)",
-    "font":             "desc_font (kiểu chữ / font chữ)",
+    "typography":       "desc_typography (kiểu chữ / typography — JSON)",
     "key_message_rule": "desc_key_message_rule (quy tắc thông điệp chính mỗi slide)",
     "density":          "desc_density (mật độ thông tin trên slide)",
     "visual":           "desc_visual (bố cục minh hoạ / visual hierarchy)",
@@ -255,7 +255,7 @@ async def generate(
     # khi paste JSON string nhiều dòng vào form field.
     # Nếu để trống hết, pipeline tự gọi generate_design_description().
     desc_tone:             str = Form(""),
-    desc_font:             str = Form(""),
+    desc_typography:       str = Form(""),  # JSON-encoded Typography
     desc_key_message_rule: str = Form(""),
     desc_density:          str = Form(""),
     desc_visual:           str = Form(""),
@@ -306,7 +306,7 @@ async def generate(
     description_dict: dict = {}
     desc_fields = {
         "tone":             desc_tone.strip(),
-        "font":             desc_font.strip(),
+        "typography":       desc_typography.strip(),
         "key_message_rule": desc_key_message_rule.strip(),
         "density":          desc_density.strip(),
         "visual":           desc_visual.strip(),
@@ -341,6 +341,20 @@ async def generate(
                 ),
             )
         description_dict["color_palette"] = palette_obj.model_dump()
+
+        # Validate & chuẩn hoá desc_typography (JSON-encoded Typography)
+        try:
+            typo_raw = json.loads(description_dict["typography"])
+            typo_obj = Typography(**typo_raw)
+        except (json.JSONDecodeError, TypeError, ValidationError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"{_DESC_FIELD_LABELS['typography']} không hợp lệ: "
+                    f"dữ liệu JSON typography không đúng định dạng ({e})."
+                ),
+            )
+        description_dict["typography"] = typo_obj.model_dump()
 
     # Ghi nhận attempt SAU KHI validate xong — tránh hao slot vì lỗi form
     generate_tracker.record_attempt(current_user.id)

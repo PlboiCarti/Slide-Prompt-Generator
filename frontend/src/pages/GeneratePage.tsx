@@ -1,7 +1,7 @@
 import { useState, useEffect, ChangeEvent, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { promptAPI, DesignDescription, draftAPI, SaveDraftPayload, JobStatusResponse } from '../services/api'
+import { promptAPI, DesignDescription, Typography, TypographyRole, draftAPI, SaveDraftPayload, JobStatusResponse } from '../services/api'
 import './GeneratePage.css'
 
 // Phải khớp với backend
@@ -31,12 +31,11 @@ const STATUS_LABELS: Record<string, string> = {
   FAILED: 'Đã có lỗi xảy ra',
 }
 
-// Labels + hints cho 5 trường text của DesignDescription (color_palette có UI riêng)
-type DescTextField = Exclude<keyof DesignDescription, 'color_palette'>
+// Labels + hints cho 4 trường text của DesignDescription (color_palette và typography có UI riêng)
+type DescTextField = Exclude<keyof DesignDescription, 'color_palette' | 'typography'>
 
 const DESC_LABELS: Record<DescTextField, string> = {
   tone: 'Giọng điệu',
-  font: 'Font chữ',
   key_message_rule: 'Quy tắc thông điệp chính',
   density: 'Mật độ thông tin',
   visual: 'Hướng dẫn hình ảnh',
@@ -44,10 +43,16 @@ const DESC_LABELS: Record<DescTextField, string> = {
 
 const DESC_HINTS: Record<DescTextField, string> = {
   tone: 'Phong cách ngôn ngữ, cảm xúc của bài trình bày',
-  font: 'Kiểu chữ đề xuất cho tiêu đề và nội dung',
   key_message_rule: 'Quy tắc xây dựng thông điệp chính mỗi slide',
   density: 'Lượng thông tin trên mỗi slide',
   visual: 'Visual hierarchy (yếu tố nổi bật), loại hình ảnh/icon/biểu đồ, và cách bố trí không gian',
+}
+
+const TYPO_ROLE_LABELS: Record<keyof Pick<Typography, 'title' | 'eyebrow' | 'body' | 'supporting'>, string> = {
+  title: 'Tiêu đề slide',
+  eyebrow: 'Eyebrow / Kicker',
+  body: 'Thân bài (Body)',
+  supporting: 'Hỗ trợ (Italic)',
 }
 
 export function GeneratePage() {
@@ -198,6 +203,29 @@ export function GeneratePage() {
       prev ? { ...prev, color_palette: { ...prev.color_palette, description: e.target.value } } : null
     )
   }
+
+  const handleTypographyRoleChange =
+    (role: keyof Pick<Typography, 'title' | 'eyebrow' | 'body' | 'supporting'>) =>
+    (field: keyof TypographyRole) =>
+    (e: ChangeEvent<HTMLInputElement>) => {
+      setDescription(prev =>
+        prev ? {
+          ...prev,
+          typography: {
+            ...prev.typography,
+            [role]: { ...prev.typography[role], [field]: e.target.value },
+          },
+        } : null
+      )
+    }
+
+  const handleTypographyTopLevel =
+    (field: 'font_family' | 'font_category' | 'weights_allowed') =>
+    (e: ChangeEvent<HTMLInputElement>) => {
+      setDescription(prev =>
+        prev ? { ...prev, typography: { ...prev.typography, [field]: e.target.value } } : null
+      )
+    }
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -478,7 +506,7 @@ export function GeneratePage() {
                 )}
               </button>
               <p className="gen-phase1-hint">
-                AI sẽ gợi ý tone, font và phong cách dựa trên thông tin bạn nhập (~3–5 giây)
+                AI sẽ gợi ý tone, typography và phong cách dựa trên thông tin bạn nhập (~3–5 giây)
               </p>
             </div>
           )}
@@ -569,6 +597,92 @@ export function GeneratePage() {
                   disabled={isRunning}
                 />
               </div>
+            </div>
+
+            {/* ── Typography section ─────────────────────────── */}
+            <div className="gen-typo-section">
+              <h3 className="gen-palette-title">Kiểu chữ (Typography)</h3>
+              <div className="gen-typo-top">
+                <div className="gen-field">
+                  <label>Font chính</label>
+                  <input
+                    type="text"
+                    value={description.typography.font_family}
+                    onChange={handleTypographyTopLevel('font_family')}
+                    disabled={isRunning}
+                    placeholder="e.g. Roboto"
+                  />
+                </div>
+                <div className="gen-field">
+                  <label>Danh mục</label>
+                  <input
+                    type="text"
+                    value={description.typography.font_category}
+                    onChange={handleTypographyTopLevel('font_category')}
+                    disabled={isRunning}
+                    placeholder="e.g. Sans-serif"
+                  />
+                </div>
+                <div className="gen-field">
+                  <label>Font weights được phép</label>
+                  <input
+                    type="text"
+                    value={description.typography.weights_allowed}
+                    onChange={handleTypographyTopLevel('weights_allowed')}
+                    disabled={isRunning}
+                    placeholder="e.g. Regular (400), Bold (700)"
+                  />
+                </div>
+              </div>
+              {(Object.keys(TYPO_ROLE_LABELS) as Array<keyof typeof TYPO_ROLE_LABELS>).map(role => (
+                <div key={role} className="gen-typo-role-card">
+                  <span className="gen-typo-role-label">{TYPO_ROLE_LABELS[role]}</span>
+                  <div className="gen-typo-role-fields">
+                    <div className="gen-field gen-field-inline">
+                      <label>Cỡ chữ</label>
+                      <input
+                        type="text"
+                        value={description.typography[role].size_pt}
+                        onChange={handleTypographyRoleChange(role)('size_pt')}
+                        disabled={isRunning}
+                        placeholder="e.g. 32-36pt"
+                      />
+                    </div>
+                    <div className="gen-field gen-field-inline">
+                      <label>Weight</label>
+                      <input
+                        type="text"
+                        value={description.typography[role].weight}
+                        onChange={handleTypographyRoleChange(role)('weight')}
+                        disabled={isRunning}
+                        placeholder="bold / regular"
+                      />
+                    </div>
+                    <div className="gen-field gen-field-color gen-field-inline">
+                      <label>Màu chữ</label>
+                      <div className="gen-color-row">
+                        <input
+                          type="color"
+                          value={description.typography[role].color}
+                          onChange={handleTypographyRoleChange(role)('color')}
+                          disabled={isRunning}
+                        />
+                        <span className="gen-color-hex">{description.typography[role].color}</span>
+                      </div>
+                    </div>
+                    <div className="gen-field gen-field-inline">
+                      <label>Ghi chú</label>
+                      <input
+                        type="text"
+                        value={description.typography[role].extra ?? ''}
+                        onChange={handleTypographyRoleChange(role)('extra')}
+                        disabled={isRunning}
+                        placeholder="letter-spacing, line-spacing…"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="gen-desc-fields">
