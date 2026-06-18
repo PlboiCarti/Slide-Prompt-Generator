@@ -215,6 +215,13 @@ const DESC_HINTS: Record<DescTextField, string> = {
   visual: 'Visual hierarchy (yếu tố nổi bật), loại hình ảnh/icon/biểu đồ, và cách bố trí không gian',
 }
 
+const DESC_ICONS: Record<DescTextField, string> = {
+  tone: '◎',
+  key_message_rule: '⚡',
+  density: '◈',
+  visual: '◧',
+}
+
 const TYPO_ROLE_LABELS: Record<keyof Pick<Typography, 'title' | 'eyebrow' | 'body' | 'supporting'>, string> = {
   title: 'Tiêu đề slide',
   eyebrow: 'Eyebrow / Kicker',
@@ -414,6 +421,273 @@ const LayoutCardGrid = memo(function LayoutCardGrid({
           onSelect={onSelect}
         />
       ))}
+    </div>
+  )
+})
+
+// ── DESIGN SPEC SUB-COMPONENTS ───────────────────────────────────────────────
+
+/** Single glassmorphic colour swatch tile with an invisible colour-picker overlay. */
+const SwatchTile = memo(function SwatchTile({
+  label,
+  value,
+  disabled,
+  locked,
+  caption,
+  onChange,
+}: {
+  label: string
+  value: string
+  disabled: boolean
+  locked?: boolean
+  caption?: string
+  onChange?: (v: string) => void
+}) {
+  return (
+    <div className={`gen-swatch-tile${locked ? ' gen-swatch-tile--locked' : ''}`}>
+      <div className="gen-swatch-circle" style={{ background: value }}>
+        {!locked && onChange && (
+          <input
+            type="color"
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            disabled={disabled}
+            className="gen-swatch-input"
+            aria-label={label}
+          />
+        )}
+      </div>
+      <span className="gen-swatch-label">{label}</span>
+      <code className="gen-swatch-hex">{value.toUpperCase()}</code>
+      {caption && <span className="gen-swatch-caption">{caption}</span>}
+    </div>
+  )
+})
+
+/** Palette section: swatch grid + description box — memo'd so it doesn't
+ *  re-render when the user types in the AI Direction textareas. */
+const PaletteSwatchGrid = memo(function PaletteSwatchGrid({
+  palette,
+  isRunning,
+  onColorChange,
+  onNeutralChange,
+  onDescChange,
+}: {
+  palette: DesignDescription['color_palette']
+  isRunning: boolean
+  onColorChange: (field: 'secondary' | 'accent', value: string) => void
+  onNeutralChange: (index: number, value: string) => void
+  onDescChange: (value: string) => void
+}) {
+  return (
+    <div className="gen-palette-section">
+      <div className="gen-spec-header">
+        <span className="gen-spec-icon">◈</span>
+        <h3 className="gen-spec-title">Bảng màu</h3>
+      </div>
+      <div className="gen-swatch-grid">
+        <SwatchTile label="Primary" value={palette.primary} disabled locked caption="Màu chủ đạo" />
+        <SwatchTile label="Secondary" value={palette.secondary} disabled={isRunning} onChange={v => onColorChange('secondary', v)} />
+        <SwatchTile label="Accent" value={palette.accent} disabled={isRunning} onChange={v => onColorChange('accent', v)} />
+        {palette.neutrals.map((hex, i) => (
+          <SwatchTile key={i} label={`Neutral ${i + 1}`} value={hex} disabled={isRunning} onChange={v => onNeutralChange(i, v)} />
+        ))}
+      </div>
+      <div className="gen-palette-desc-box">
+        <textarea
+          value={palette.description}
+          onChange={e => onDescChange(e.target.value)}
+          rows={2}
+          disabled={isRunning}
+          placeholder="Mô tả & quy tắc phối màu..."
+          aria-label="Mô tả bảng màu"
+        />
+      </div>
+    </div>
+  )
+})
+
+/** Single typography role row with live "Aa" colour+weight preview. */
+const TypoRoleRow = memo(function TypoRoleRow({
+  role,
+  label,
+  roleData,
+  isRunning,
+  onChange,
+}: {
+  role: keyof Pick<Typography, 'title' | 'eyebrow' | 'body' | 'supporting'>
+  label: string
+  roleData: TypographyRole
+  isRunning: boolean
+  onChange: (role: keyof Pick<Typography, 'title' | 'eyebrow' | 'body' | 'supporting'>, field: keyof TypographyRole, value: string) => void
+}) {
+  const w = (roleData.weight ?? '').toLowerCase()
+  const previewWeight =
+    w.includes('900') || w.includes('black') ? 900
+    : w.includes('800') ? 800
+    : w.includes('bold') || w.includes('700') ? 700
+    : w.includes('600') || w.includes('semi') ? 600
+    : w.includes('500') || w.includes('medium') ? 500
+    : 400
+
+  return (
+    <div className="gen-typo-role-row">
+      <div className="gen-typo-aa">
+        <span
+          className="gen-typo-aa-glyph"
+          style={{ fontWeight: previewWeight }}
+        >
+          Aa
+        </span>
+        <span className="gen-typo-aa-tag">{label}</span>
+      </div>
+      <div className="gen-typo-role-body">
+        <div className="gen-typo-top-fields">
+          <div className="gen-typo-f">
+            <label>Cỡ chữ</label>
+            <input type="text" value={roleData.size_pt} onChange={e => onChange(role, 'size_pt', e.target.value)} disabled={isRunning} placeholder="32–36pt" />
+          </div>
+          <div className="gen-typo-f">
+            <label>Weight</label>
+            <input type="text" value={roleData.weight} onChange={e => onChange(role, 'weight', e.target.value)} disabled={isRunning} placeholder="bold / regular" />
+          </div>
+          <div className="gen-typo-color-pick">
+            <label>Màu</label>
+            <div className="gen-typo-color-row">
+              <input type="color" value={roleData.color} onChange={e => onChange(role, 'color', e.target.value)} disabled={isRunning} aria-label={`${label} màu chữ`} />
+              <span className="gen-typo-color-code">{roleData.color.toUpperCase()}</span>
+            </div>
+          </div>
+        </div>
+        <div className="gen-typo-notes-row">
+          <label className="gen-typo-notes-label">Ghi chú</label>
+          <textarea
+            className="gen-typo-notes"
+            value={roleData.extra ?? ''}
+            onChange={e => onChange(role, 'extra', e.target.value)}
+            disabled={isRunning}
+            rows={2}
+            placeholder="letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.4…"
+          />
+        </div>
+      </div>
+    </div>
+  )
+})
+
+/** Typography spec sheet — memo'd for same perf isolation as PaletteSwatchGrid. */
+const TypographySpecSheet = memo(function TypographySpecSheet({
+  typography,
+  isRunning,
+  onTopLevelChange,
+  onRoleChange,
+}: {
+  typography: Typography
+  isRunning: boolean
+  onTopLevelChange: (field: 'font_family' | 'font_category' | 'weights_allowed', value: string) => void
+  onRoleChange: (role: keyof Pick<Typography, 'title' | 'eyebrow' | 'body' | 'supporting'>, field: keyof TypographyRole, value: string) => void
+}) {
+  return (
+    <div className="gen-typo-section">
+      <div className="gen-spec-header">
+        <span className="gen-spec-icon gen-spec-icon--violet">T</span>
+        <h3 className="gen-spec-title">Kiểu chữ</h3>
+      </div>
+      <div className="gen-typo-meta">
+        <div className="gen-typo-meta-field">
+          <label className="gen-typo-meta-label">Font chính</label>
+          <input className="gen-typo-meta-input" type="text" value={typography.font_family} onChange={e => onTopLevelChange('font_family', e.target.value)} disabled={isRunning} placeholder="e.g. Roboto" />
+        </div>
+        <div className="gen-typo-meta-field">
+          <label className="gen-typo-meta-label">Danh mục</label>
+          <input className="gen-typo-meta-input" type="text" value={typography.font_category} onChange={e => onTopLevelChange('font_category', e.target.value)} disabled={isRunning} placeholder="e.g. Sans-serif" />
+        </div>
+        <div className="gen-typo-meta-field">
+          <label className="gen-typo-meta-label">Weights được phép</label>
+          <input className="gen-typo-meta-input" type="text" value={typography.weights_allowed} onChange={e => onTopLevelChange('weights_allowed', e.target.value)} disabled={isRunning} placeholder="400, 700" />
+        </div>
+      </div>
+      <div className="gen-typo-roles">
+        {(Object.keys(TYPO_ROLE_LABELS) as Array<keyof typeof TYPO_ROLE_LABELS>).map(role => (
+          <TypoRoleRow
+            key={role}
+            role={role}
+            label={TYPO_ROLE_LABELS[role]}
+            roleData={typography[role]}
+            isRunning={isRunning}
+            onChange={onRoleChange}
+          />
+        ))}
+      </div>
+    </div>
+  )
+})
+
+/** Single interactive glass card for one AI direction field.
+ *  Glows on textarea focus; independently memo'd so only the changed card re-renders. */
+const DirectionCard = memo(function DirectionCard({
+  field,
+  icon,
+  label,
+  hint,
+  value,
+  isRunning,
+  onChange,
+}: {
+  field: DescTextField
+  icon: string
+  label: string
+  hint: string
+  value: string
+  isRunning: boolean
+  onChange: (field: DescTextField, value: string) => void
+}) {
+  const [focused, setFocused] = useState(false)
+  return (
+    <div className={`gen-dir-card${focused ? ' gen-dir-card--focused' : ''}`}>
+      <div className="gen-dir-top">
+        <span className="gen-dir-icon">{icon}</span>
+        <div className="gen-dir-meta">
+          <strong className="gen-dir-label">{label}</strong>
+          <span className="gen-dir-hint">{hint}</span>
+        </div>
+      </div>
+      <textarea
+        className="gen-dir-textarea"
+        value={value}
+        onChange={e => onChange(field, e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        rows={3}
+        disabled={isRunning}
+        placeholder={hint}
+      />
+    </div>
+  )
+})
+
+/** 2-column grid of 4 Direction Cards — memo'd; each card is also independently memo'd. */
+const DesignDirectionCards = memo(function DesignDirectionCards({
+  tone,
+  keyMessageRule,
+  density,
+  visual,
+  isRunning,
+  onChange,
+}: {
+  tone: string
+  keyMessageRule: string
+  density: string
+  visual: string
+  isRunning: boolean
+  onChange: (field: DescTextField, value: string) => void
+}) {
+  return (
+    <div className="gen-desc-fields">
+      <DirectionCard field="tone"            icon={DESC_ICONS.tone}            label={DESC_LABELS.tone}            hint={DESC_HINTS.tone}            value={tone}           isRunning={isRunning} onChange={onChange} />
+      <DirectionCard field="key_message_rule" icon={DESC_ICONS.key_message_rule} label={DESC_LABELS.key_message_rule} hint={DESC_HINTS.key_message_rule} value={keyMessageRule} isRunning={isRunning} onChange={onChange} />
+      <DirectionCard field="density"         icon={DESC_ICONS.density}         label={DESC_LABELS.density}         hint={DESC_HINTS.density}         value={density}        isRunning={isRunning} onChange={onChange} />
+      <DirectionCard field="visual"          icon={DESC_ICONS.visual}          label={DESC_LABELS.visual}          hint={DESC_HINTS.visual}          value={visual}         isRunning={isRunning} onChange={onChange} />
     </div>
   )
 })
@@ -636,64 +910,52 @@ export function GeneratePage() {
     setFormData(prev => ({ ...prev, content: contentLatestRef.current }))
   }, [])
 
-  const resizeTextarea = (textarea: HTMLTextAreaElement | null) => {
-    if (!textarea) return
-
-    textarea.style.height = 'auto'
-    textarea.style.height = `${textarea.scrollHeight}px`
-  }
-
-  const handleDescriptionChange =
-    (field: keyof DesignDescription) => (e: ChangeEvent<HTMLTextAreaElement>) => {
-      resizeTextarea(e.currentTarget)
-      setDescription(prev => (prev ? { ...prev, [field]: e.target.value } : null))
-    }
-
-  const handlePaletteColorChange =
-    (field: 'secondary' | 'accent') => (e: ChangeEvent<HTMLInputElement>) => {
-      setDescription(prev =>
-        prev ? { ...prev, color_palette: { ...prev.color_palette, [field]: e.target.value } } : null
-      )
-    }
-
-  const handlePaletteNeutralChange =
-    (index: number) => (e: ChangeEvent<HTMLInputElement>) => {
-      setDescription(prev => {
-        if (!prev) return null
-        const neutrals = [...prev.color_palette.neutrals]
-        neutrals[index] = e.target.value
-        return { ...prev, color_palette: { ...prev.color_palette, neutrals } }
-      })
-    }
-
-  const handlePaletteDescriptionChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+  const handlePaletteColorChange = useCallback((field: 'secondary' | 'accent', value: string) => {
     setDescription(prev =>
-      prev ? { ...prev, color_palette: { ...prev.color_palette, description: e.target.value } } : null
+      prev ? { ...prev, color_palette: { ...prev.color_palette, [field]: value } } : null
     )
-  }
+  }, [])
 
-  const handleTypographyRoleChange =
-    (role: keyof Pick<Typography, 'title' | 'eyebrow' | 'body' | 'supporting'>) =>
-    (field: keyof TypographyRole) =>
-    (e: ChangeEvent<HTMLInputElement>) => {
-      setDescription(prev =>
-        prev ? {
-          ...prev,
-          typography: {
-            ...prev.typography,
-            [role]: { ...prev.typography[role], [field]: e.target.value },
-          },
-        } : null
-      )
-    }
+  const handlePaletteNeutralChange = useCallback((index: number, value: string) => {
+    setDescription(prev => {
+      if (!prev) return null
+      const neutrals = [...prev.color_palette.neutrals]
+      neutrals[index] = value
+      return { ...prev, color_palette: { ...prev.color_palette, neutrals } }
+    })
+  }, [])
 
-  const handleTypographyTopLevel =
-    (field: 'font_family' | 'font_category' | 'weights_allowed') =>
-    (e: ChangeEvent<HTMLInputElement>) => {
-      setDescription(prev =>
-        prev ? { ...prev, typography: { ...prev.typography, [field]: e.target.value } } : null
-      )
-    }
+  const handlePaletteDescriptionChange = useCallback((value: string) => {
+    setDescription(prev =>
+      prev ? { ...prev, color_palette: { ...prev.color_palette, description: value } } : null
+    )
+  }, [])
+
+  const handleTypographyTopLevel = useCallback((field: 'font_family' | 'font_category' | 'weights_allowed', value: string) => {
+    setDescription(prev =>
+      prev ? { ...prev, typography: { ...prev.typography, [field]: value } } : null
+    )
+  }, [])
+
+  const handleTypographyRoleChange = useCallback((
+    role: keyof Pick<Typography, 'title' | 'eyebrow' | 'body' | 'supporting'>,
+    field: keyof TypographyRole,
+    value: string
+  ) => {
+    setDescription(prev =>
+      prev ? {
+        ...prev,
+        typography: {
+          ...prev.typography,
+          [role]: { ...prev.typography[role], [field]: value },
+        },
+      } : null
+    )
+  }, [])
+
+  const handleDirectionChange = useCallback((field: DescTextField, value: string) => {
+    setDescription(prev => prev ? { ...prev, [field]: value } : null)
+  }, [])
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -1232,172 +1494,29 @@ export function GeneratePage() {
               </p>
             </div>
 
-            <div className="gen-palette-section">
-              <h3 className="gen-palette-title">Bảng màu</h3>
-              <div className="gen-palette-swatches">
-                <div className="gen-field gen-field-color">
-                  <label>
-                    Primary
-                    <span className="gen-desc-hint">theo Màu chủ đạo ở Bước 2</span>
-                  </label>
-                  <div className="gen-color-row">
-                    <input type="color" value={description.color_palette.primary} disabled />
-                    <span className="gen-color-hex">{description.color_palette.primary}</span>
-                  </div>
-                </div>
-                <div className="gen-field gen-field-color">
-                  <label>Secondary</label>
-                  <div className="gen-color-row">
-                    <input
-                      type="color"
-                      value={description.color_palette.secondary}
-                      onChange={handlePaletteColorChange('secondary')}
-                      disabled={isRunning}
-                    />
-                    <span className="gen-color-hex">{description.color_palette.secondary}</span>
-                  </div>
-                </div>
-                <div className="gen-field gen-field-color">
-                  <label>Accent</label>
-                  <div className="gen-color-row">
-                    <input
-                      type="color"
-                      value={description.color_palette.accent}
-                      onChange={handlePaletteColorChange('accent')}
-                      disabled={isRunning}
-                    />
-                    <span className="gen-color-hex">{description.color_palette.accent}</span>
-                  </div>
-                </div>
-                {description.color_palette.neutrals.map((hex, i) => (
-                  <div key={i} className="gen-field gen-field-color">
-                    <label>{`Neutral ${i + 1}`}</label>
-                    <div className="gen-color-row">
-                      <input
-                        type="color"
-                        value={hex}
-                        onChange={handlePaletteNeutralChange(i)}
-                        disabled={isRunning}
-                      />
-                      <span className="gen-color-hex">{hex}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="gen-desc-field gen-palette-description">
-                <label>Mô tả & quy tắc phối màu</label>
-                <textarea
-                  value={description.color_palette.description}
-                  onChange={handlePaletteDescriptionChange}
-                  rows={3}
-                  disabled={isRunning}
-                />
-              </div>
-            </div>
+            <PaletteSwatchGrid
+              palette={description.color_palette}
+              isRunning={isRunning}
+              onColorChange={handlePaletteColorChange}
+              onNeutralChange={handlePaletteNeutralChange}
+              onDescChange={handlePaletteDescriptionChange}
+            />
 
-            {/* ── Typography section ─────────────────────────── */}
-            <div className="gen-typo-section">
-              <h3 className="gen-palette-title">Kiểu chữ (Typography)</h3>
-              <div className="gen-typo-top">
-                <div className="gen-field">
-                  <label>Font chính</label>
-                  <input
-                    type="text"
-                    value={description.typography.font_family}
-                    onChange={handleTypographyTopLevel('font_family')}
-                    disabled={isRunning}
-                    placeholder="e.g. Roboto"
-                  />
-                </div>
-                <div className="gen-field">
-                  <label>Danh mục</label>
-                  <input
-                    type="text"
-                    value={description.typography.font_category}
-                    onChange={handleTypographyTopLevel('font_category')}
-                    disabled={isRunning}
-                    placeholder="e.g. Sans-serif"
-                  />
-                </div>
-                <div className="gen-field">
-                  <label>Font weights được phép</label>
-                  <input
-                    type="text"
-                    value={description.typography.weights_allowed}
-                    onChange={handleTypographyTopLevel('weights_allowed')}
-                    disabled={isRunning}
-                    placeholder="e.g. Regular (400), Bold (700)"
-                  />
-                </div>
-              </div>
-              {(Object.keys(TYPO_ROLE_LABELS) as Array<keyof typeof TYPO_ROLE_LABELS>).map(role => (
-                <div key={role} className="gen-typo-role-card">
-                  <span className="gen-typo-role-label">{TYPO_ROLE_LABELS[role]}</span>
-                  <div className="gen-typo-role-fields">
-                    <div className="gen-field gen-field-inline">
-                      <label>Cỡ chữ</label>
-                      <input
-                        type="text"
-                        value={description.typography[role].size_pt}
-                        onChange={handleTypographyRoleChange(role)('size_pt')}
-                        disabled={isRunning}
-                        placeholder="e.g. 32-36pt"
-                      />
-                    </div>
-                    <div className="gen-field gen-field-inline">
-                      <label>Weight</label>
-                      <input
-                        type="text"
-                        value={description.typography[role].weight}
-                        onChange={handleTypographyRoleChange(role)('weight')}
-                        disabled={isRunning}
-                        placeholder="bold / regular"
-                      />
-                    </div>
-                    <div className="gen-field gen-field-color gen-field-inline">
-                      <label>Màu chữ</label>
-                      <div className="gen-color-row">
-                        <input
-                          type="color"
-                          value={description.typography[role].color}
-                          onChange={handleTypographyRoleChange(role)('color')}
-                          disabled={isRunning}
-                        />
-                        <span className="gen-color-hex">{description.typography[role].color}</span>
-                      </div>
-                    </div>
-                    <div className="gen-field gen-field-inline">
-                      <label>Ghi chú</label>
-                      <input
-                        type="text"
-                        value={description.typography[role].extra ?? ''}
-                        onChange={handleTypographyRoleChange(role)('extra')}
-                        disabled={isRunning}
-                        placeholder="letter-spacing, line-spacing…"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <TypographySpecSheet
+              typography={description.typography}
+              isRunning={isRunning}
+              onTopLevelChange={handleTypographyTopLevel}
+              onRoleChange={handleTypographyRoleChange}
+            />
 
-            <div className="gen-desc-fields">
-              {(Object.keys(DESC_LABELS) as Array<DescTextField>).map(field => (
-                <div key={field} className="gen-desc-field">
-                  <label>
-                    {DESC_LABELS[field]}
-                    <span className="gen-desc-hint">{DESC_HINTS[field]}</span>
-                  </label>
-                  <textarea
-                    className={`gen-desc-textarea gen-desc-textarea-${field}`}
-                    value={description[field]}
-                    onChange={handleDescriptionChange(field)}
-                    rows={3}
-                    disabled={isRunning}
-                  />
-                </div>
-              ))}
-            </div>
+            <DesignDirectionCards
+              tone={description.tone}
+              keyMessageRule={description.key_message_rule}
+              density={description.density}
+              visual={description.visual}
+              isRunning={isRunning}
+              onChange={handleDirectionChange}
+            />
           </div>
         )}
 
