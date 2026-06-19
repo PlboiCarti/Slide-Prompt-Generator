@@ -2,6 +2,7 @@ import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { authAPI } from '../services/api'
+import { ThemeToggle } from '../components/ThemeToggle'
 import './AuthPage.css'
 
 const PENDING_VERIFICATION_KEY = 'pendingEmailVerification'
@@ -40,6 +41,8 @@ export function RegisterPage() {
   const [resendMessage, setResendMessage] = useState('')
   const [resendError, setResendError] = useState(false)
   const [cooldownRemaining, setCooldownRemaining] = useState(0)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const { register } = useAuth()
   const navigate = useNavigate()
 
@@ -47,10 +50,12 @@ export function RegisterPage() {
     e.preventDefault()
     setError('')
 
+    // Validate trước khi gọi API — tránh round-trip không cần thiết, cho phản hồi tức thì.
     if (password !== confirmPassword) {
       setError('Mật khẩu không khớp')
       return
     }
+
     if (password.length < 8) {
       setError('Mật khẩu phải có ít nhất 8 ký tự')
       return
@@ -65,6 +70,7 @@ export function RegisterPage() {
       setPending(newPending)
       setPollingExpired(false)
     } catch (err: any) {
+      // err.response?.data?.detail — chuỗi lỗi từ FastAPI (email đã tồn tại, v.v.)
       setError(err.response?.data?.detail || 'Đăng ký thất bại')
     } finally {
       setIsLoading(false)
@@ -98,14 +104,6 @@ export function RegisterPage() {
     }
   }
 
-  // Sau khi đăng ký xong → hiện màn hình "Vui lòng xác thực email" và poll
-  // backend định kỳ để biết email đã verify chưa. State lưu ở localStorage
-  // nên vẫn hoạt động nếu tab này bị điều hướng đi rồi quay lại, hoặc nếu
-  // người dùng bấm link verify trên thiết bị khác.
-  //
-  // - Dừng polling khi tab ẩn (Page Visibility API), resume khi quay lại,
-  //   tránh gọi API lãng phí khi tab chạy ngầm.
-  // - Sau POLL_TIMEOUT_MS không verify → dừng poll, hiện nút gửi lại email.
   useEffect(() => {
     if (!pending) return
 
@@ -165,8 +163,6 @@ export function RegisterPage() {
     }
   }, [pending, navigate])
 
-  // Đếm ngược cooldown cho nút "Gửi lại email xác thực" — tính từ
-  // pending.startedAt (lần gửi gần nhất, kể cả lần gửi lúc đăng ký).
   useEffect(() => {
     if (!pending) {
       setCooldownRemaining(0)
@@ -189,6 +185,7 @@ export function RegisterPage() {
   if (pending) {
     return (
       <div className="auth-container">
+        <ThemeToggle />
         <div className="auth-card auth-card-center">
           <div className="auth-icon-success">✉</div>
           <h1>Xác thực email để hoàn tất đăng ký</h1>
@@ -197,6 +194,7 @@ export function RegisterPage() {
             <br />
             <strong>{pending.email}</strong>
           </p>
+
           <p className="auth-card-hint">
             Vui lòng kiểm tra hộp thư (cả thư mục spam) và click vào link xác thực để
             hoàn tất đăng ký. Trang này sẽ tự động chuyển tiếp khi xác thực xong.
@@ -227,6 +225,7 @@ export function RegisterPage() {
                 : 'Gửi lại email xác thực'}
           </button>
 
+
           <button onClick={() => navigate('/login')} className="btn-primary">
             Về trang đăng nhập
           </button>
@@ -240,50 +239,108 @@ export function RegisterPage() {
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
-        <h1>Đăng ký</h1>
-        {error && <div className="error-message">{error}</div>}
+      <ThemeToggle />
+      <div className="auth-glow auth-glow-pink" />
+      <div className="auth-glow auth-glow-blue" />
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+      <div className="auth-shell">
+        <section className="auth-card">
+          <div className="auth-card-header">
+            <button className="auth-brand" onClick={() => navigate('/')}>
+              <span className="auth-brand-logo">PB</span>
+              <span className="auth-brand-name">Prompt Builder</span>
+            </button>
+            <span className="auth-kicker">Tạo tài khoản</span>
+            <h1>Bắt đầu hành trình</h1>
+            <p>Lưu draft, xem lịch sử và xây dựng Master Prompt chuyên nghiệp.</p>
           </div>
 
-          <div className="form-group">
-            <label>Mật khẩu (tối thiểu 8 ký tự)</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-            />
-          </div>
+          {error && <div className="error-message">{error}</div>}
 
-          <div className="form-group">
-            <label>Xác nhận mật khẩu</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
-          </div>
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label>Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
 
-          <button type="submit" disabled={isLoading} className="btn-primary">
-            {isLoading ? 'Đang đăng ký...' : 'Đăng ký'}
-          </button>
-        </form>
+            <div className="form-group">
+              <label>Mật khẩu</label>
+              <div className="password-input-wrap">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Tối thiểu 8 ký tự"
+                  required
+                  minLength={8}
+                />
+                <button
+                  type="button"
+                  className="password-toggle-btn"
+                  onClick={() => setShowPassword(v => !v)}
+                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                >
+                  {showPassword ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
 
-        <p className="auth-link">
-          Đã có tài khoản? <Link to="/login">Đăng nhập</Link>
-        </p>
+            <div className="form-group">
+              <label>Xác nhận mật khẩu</label>
+              <div className="password-input-wrap">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Nhập lại mật khẩu"
+                  required
+                />
+                <button
+                  type="button"
+                  className="password-toggle-btn"
+                  onClick={() => setShowConfirmPassword(v => !v)}
+                  aria-label={showConfirmPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                >
+                  {showConfirmPassword ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" disabled={isLoading} className="btn-primary">
+              {isLoading ? 'Đang đăng ký...' : 'Đăng ký'}
+            </button>
+          </form>
+
+          <p className="auth-link">
+            Đã có tài khoản? <Link to="/login">Đăng nhập</Link>
+          </p>
+        </section>
       </div>
     </div>
   )

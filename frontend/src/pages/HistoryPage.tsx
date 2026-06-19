@@ -1,6 +1,21 @@
+/**
+ * HistoryPage — Trang lịch sử, quản lý draft và thùng rác
+ *
+ * Tab system: Tất cả / Hoàn thành / Bản nháp / Thất bại → gọi historyAPI.
+ * Tab Thùng rác → gọi binAPI riêng biệt (dữ liệu khác schema so với history).
+ *
+ * Anti-race-condition: biến `isCurrentRequest` trong useEffect đảm bảo response
+ * cũ không ghi đè state mới khi người dùng chuyển tab nhanh trước khi fetch xong.
+ *
+ * Soft-delete vs Hard-delete:
+ *   - handleDelete    → soft-delete, item vào thùng rác, có thể khôi phục.
+ *   - handleHardDelete → xóa vĩnh viễn khỏi DB, không hoàn tác được.
+ *   - handleEmptyBin  → hard-delete toàn bộ thùng rác cùng lúc.
+ */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { binAPI, BinItem, draftAPI, historyAPI, HistoryItem, JobResult } from '../services/api'
+import { ThemeToggle } from '../components/ThemeToggle'
 import './HistoryPage.css'
 
 type HistoryTab = 'ALL' | 'COMPLETED' | 'DRAFT' | 'FAILED' | 'BIN'
@@ -35,6 +50,8 @@ export function HistoryPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
+  // mutatingId lưu id của item đang trong quá trình xóa/khôi phục để disable đúng nút đó,
+  // thay vì lock toàn bộ trang — UX tốt hơn khi có nhiều item trên màn hình.
   const [mutatingId, setMutatingId] = useState<string | null>(null)
   const [isEmptyingBin, setIsEmptyingBin] = useState(false)
 
@@ -45,8 +62,11 @@ export function HistoryPage() {
 
   const getErrorMessage = (err: any, fallback: string) => err.response?.data?.detail || fallback
 
+  // Tải lại danh sách mỗi khi tab, trang, hoặc refreshKey thay đổi.
+  // refreshKey được bump sau mutation (xóa/khôi phục) thay vì lưu full list trong state —
+  // tránh phải sync local state với server, đơn giản hóa logic đáng kể.
   useEffect(() => {
-    let isCurrentRequest = true
+    let isCurrentRequest = true  // guard: bỏ qua response nếu effect đã cleanup (tab đổi)
 
     const loadHistory = async () => {
       setIsLoading(true)
@@ -67,6 +87,7 @@ export function HistoryPage() {
           setTotalItems(res.data.total)
         }
       } catch (err: any) {
+        // getErrorMessage trích xuất err.response?.data?.detail từ Axios error object
         if (isCurrentRequest) {
           setError(getErrorMessage(err, 'Không tải được lịch sử'))
         }
@@ -84,6 +105,8 @@ export function HistoryPage() {
     }
   }, [activeTab, offset, refreshKey])
 
+  // Clamp currentPage khi totalItems giảm (ví dụ: xóa item cuối của trang cuối).
+  // Không xử lý trong refreshAfterMutation vì totalItems cập nhật async sau fetch.
   useEffect(() => {
     const nextTotalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
     if (currentPage > nextTotalPages) {
@@ -91,6 +114,8 @@ export function HistoryPage() {
     }
   }, [currentPage, totalItems])
 
+  // Sau khi xóa/khôi phục: nếu item vừa xóa là item duy nhất trên trang (không phải trang 1),
+  // lùi về trang trước thay vì hiện trang trống. Ngược lại, bump refreshKey để re-fetch.
   const refreshAfterMutation = () => {
     if (visibleCount === 1 && currentPage > 1) {
       setCurrentPage((page) => page - 1)
@@ -195,9 +220,31 @@ export function HistoryPage() {
           </p>
         </div>
         <div className="history-actions">
-          <button onClick={() => navigate('/generate')}>Tạo prompt mới</button>
+          <ThemeToggle />
+
+          <button
+            type="button"
+            className="history-secondary"
+            onClick={() => navigate('/')}
+          >
+            Trang chủ
+          </button>
+
+          <button
+            type="button"
+            className="history-primary"
+            onClick={() => navigate('/generate')}
+          >
+            + Tạo prompt mới
+          </button>
+
           {isBinTab && binItems.length > 0 && (
-            <button className="danger" onClick={handleEmptyBin} disabled={isEmptyingBin}>
+            <button
+              type="button"
+              className="danger"
+              onClick={handleEmptyBin}
+              disabled={isEmptyingBin}
+            >
               {isEmptyingBin ? 'Đang dọn...' : 'Dọn sạch thùng rác'}
             </button>
           )}
