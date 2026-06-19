@@ -17,6 +17,7 @@ function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
 
+
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/auth/callback" element={<CallbackPage />} />
@@ -29,7 +30,6 @@ function App() {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/history"
               element={
@@ -38,7 +38,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-
+            
             <Route path="/bin" element={<Navigate to="/history" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
